@@ -1,0 +1,143 @@
+from __future__ import annotations
+
+import pytest
+
+from config import Settings
+from db.convex_client import ConvexGateway
+from enrichment.exa_client import ExaEnrichmentClient
+from enrichment.models import EnrichmentRequest
+from observability.laminar import LaminarTracingClient
+
+# --- ConvexGateway ---
+
+
+def test_convex_gateway_not_configured() -> None:
+    gw = ConvexGateway(Settings())
+    assert gw.configured is False
+
+
+def test_convex_gateway_configured_with_url() -> None:
+    gw = ConvexGateway(Settings(CONVEX_URL="https://convex.example.com"))
+    assert gw.configured is True
+
+
+@pytest.mark.anyio
+async def test_convex_store_person_unconfigured_raises() -> None:
+    gw = ConvexGateway(Settings())
+    with pytest.raises(RuntimeError, match="not configured"):
+        await gw.store_person("p1", {"name": "Alice"})
+
+
+@pytest.mark.anyio
+async def test_convex_get_person_unconfigured_raises() -> None:
+    gw = ConvexGateway(Settings())
+    with pytest.raises(RuntimeError, match="not configured"):
+        await gw.get_person("p1")
+
+
+@pytest.mark.anyio
+async def test_convex_update_person_unconfigured_raises() -> None:
+    gw = ConvexGateway(Settings())
+    with pytest.raises(RuntimeError, match="not configured"):
+        await gw.update_person("p1", {"name": "Updated"})
+
+
+@pytest.mark.anyio
+async def test_convex_store_capture_unconfigured_raises() -> None:
+    gw = ConvexGateway(Settings())
+    with pytest.raises(RuntimeError, match="not configured"):
+        await gw.store_capture("c1", {"source": "camera"})
+
+
+@pytest.mark.anyio
+async def test_convex_store_person_configured_returns_id() -> None:
+    gw = ConvexGateway(Settings(CONVEX_URL="https://convex.example.com"))
+    result = await gw.store_person("p1", {"name": "Alice"})
+    assert result == "p1"
+
+
+@pytest.mark.anyio
+async def test_convex_get_person_configured_returns_none() -> None:
+    gw = ConvexGateway(Settings(CONVEX_URL="https://convex.example.com"))
+    result = await gw.get_person("p1")
+    assert result is None
+
+
+@pytest.mark.anyio
+async def test_convex_store_capture_configured_returns_id() -> None:
+    gw = ConvexGateway(Settings(CONVEX_URL="https://convex.example.com"))
+    result = await gw.store_capture("c1", {"source": "camera"})
+    assert result == "c1"
+
+
+# --- ExaEnrichmentClient ---
+
+
+def test_exa_client_not_configured() -> None:
+    client = ExaEnrichmentClient(Settings())
+    assert client.configured is False
+
+
+def test_exa_client_configured() -> None:
+    client = ExaEnrichmentClient(Settings(EXA_API_KEY="test-key"))
+    assert client.configured is True
+
+
+def test_exa_build_person_query_name_only() -> None:
+    client = ExaEnrichmentClient(Settings())
+    q = client.build_person_query("John Doe")
+    assert q == '"John Doe"'
+
+
+def test_exa_build_person_query_with_company() -> None:
+    client = ExaEnrichmentClient(Settings())
+    q = client.build_person_query("John Doe", "Acme")
+    assert q == '"John Doe" "Acme"'
+
+
+@pytest.mark.anyio
+async def test_exa_enrich_person_unconfigured() -> None:
+    client = ExaEnrichmentClient(Settings())
+    result = await client.enrich_person(EnrichmentRequest(name="Test User"))
+    assert result.success is False
+    assert "not configured" in result.error
+
+
+@pytest.mark.anyio
+async def test_exa_enrich_person_configured() -> None:
+    client = ExaEnrichmentClient(Settings(EXA_API_KEY="test-key"))
+    result = await client.enrich_person(EnrichmentRequest(name="Test User"))
+    assert result.success is True
+    assert len(result.hits) == 1
+    assert result.hits[0].source == "exa"
+
+
+# --- LaminarTracingClient ---
+
+
+def test_laminar_not_configured() -> None:
+    client = LaminarTracingClient(Settings())
+    assert client.configured is False
+
+
+def test_laminar_configured() -> None:
+    client = LaminarTracingClient(Settings(LAMINAR_API_KEY="lam-key"))
+    assert client.configured is True
+
+
+def test_laminar_trace_event_unconfigured_no_crash() -> None:
+    client = LaminarTracingClient(Settings())
+    client.trace_event("test_event", {"key": "value"})
+
+
+def test_laminar_trace_span_start_returns_id() -> None:
+    client = LaminarTracingClient(Settings())
+    span_id = client.trace_span_start("test_span")
+    assert span_id.startswith("span_")
+    assert len(span_id) == 17  # "span_" + 12 hex chars
+
+
+def test_laminar_trace_span_end_no_crash() -> None:
+    client = LaminarTracingClient(Settings())
+    span_id = client.trace_span_start("test_span")
+    client.trace_span_end(span_id, {"result": "ok"})
