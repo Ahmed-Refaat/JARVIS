@@ -19,15 +19,33 @@ dependencies = [
 dev = [
   "httpx>=0.28.1",
   "pytest>=8.4.1",
+  "pytest-cov>=6.0",
   "ruff>=0.12.11",
 ]
 
 [tool.setuptools]
-py-modules = ["config", "main", "schemas", "tasks"]
+py-modules = ["config", "env_check", "main", "schemas", "tasks"]
 packages = ["agents", "capture", "db", "enrichment", "identification", "observability", "synthesis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=. --cov-report=term-missing --cov-config=pyproject.toml"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+  "tests/*",
+  ".venv/*",
+  "__pycache__/*",
+]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.",
+]
 
 [tool.ruff]
 line-length = 100
