@@ -181,6 +181,53 @@
 
 ---
 
+### PHASE 5B: Ambient Intelligence + OSINT Depth (Hours 20-22)
+
+- [ ] **T28: WiFi probe sniffer**
+  - Create `backend/ambient/wifi_sniffer.py` (see SYSTEM_DESIGN.md §9.2)
+  - Raspberry Pi 4 + Alfa AWUS036ACH in monitor mode
+  - tshark captures probe requests → extract MAC + SSID
+  - WiGLE API enriches SSID → GPS location (workplace/school inference)
+  - **Acceptance:** Running at venue, capturing SSIDs from nearby devices
+
+- [ ] **T29: BLE device scanner**
+  - Create `backend/ambient/ble_scanner.py` (see SYSTEM_DESIGN.md §9.3)
+  - Uses `bleak` library for async BLE scanning
+  - Extract device names ("John's AirPods") → owner name parsing
+  - **Acceptance:** Returns list of nearby BLE devices with inferred owner names
+
+- [ ] **T30: FEC donation search agent**
+  - Create `backend/agents/public_records/fec_agent.py` (see SYSTEM_DESIGN.md §10.4)
+  - FEC API (free key) → search by name → political donations since 1977
+  - **Acceptance:** Name search returns donation history with amounts and committees
+
+- [ ] **T31: Public records Browser Use agents**
+  - Create `backend/agents/public_records/people_search.py`
+  - Browser Use agent for FastPeopleSearch / TruePeopleSearch
+  - Extract: address, phone, relatives, associates
+  - Fire in parallel during Tier 2 enrichment
+  - **Acceptance:** Given a name → returns address + phone + associates
+
+- [ ] **T32: OSINT username sweep (Sherlock + Maigret)**
+  - Create `backend/agents/osint/username_sweep.py`
+  - Run Sherlock (400+ sites, ~30s) and Maigret (2500+ sites, ~60s) in parallel
+  - Parse results → list of confirmed accounts with URLs
+  - **Acceptance:** Username → returns 20+ confirmed accounts across platforms
+
+- [ ] **T33: Email intelligence (Holehe + HIBP)**
+  - Create `backend/agents/osint/email_intel.py`
+  - Holehe checks 120+ sites for email registration
+  - HIBP checks breach count (ethical: count only, no data)
+  - **Acceptance:** Email → list of registered services + breach count
+
+- [ ] **T34: Live camera feed widget**
+  - Create `backend/ambient/cameras/caltrans.py` + `nyc.py` (see SYSTEM_DESIGN.md §11)
+  - Pull nearby camera feeds (Caltrans for SF, NYCTMC for NYC)
+  - Frontend mini-map component showing live feeds on corkboard
+  - **Acceptance:** Corkboard shows 2-3 live camera thumbnails refreshing every 15s
+
+---
+
 ### PHASE 6: Demo Prep (Hours 22-24)
 
 - [ ] **T24: Pre-seed demo data**
