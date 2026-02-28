@@ -16,11 +16,11 @@ export default function Home() {
   const selectedPerson = persons.find((person) => person._id === selectedPersonId) ?? null;
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-dark)" }}>
+    <div data-testid="specter-app" className="h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-dark)" }}>
       <TopBar personCount={persons.length} isLive={isLive} />
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 relative">
+        <div data-testid="corkboard-container" className="flex-1 relative">
           <Corkboard
             persons={persons}
             connections={connections}

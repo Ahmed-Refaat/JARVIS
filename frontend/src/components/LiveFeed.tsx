@@ -10,6 +10,7 @@ interface LiveFeedProps {
 export function LiveFeed({ activity, onEventClick }: LiveFeedProps) {
   return (
     <aside
+      data-testid="live-feed"
       className="w-[320px] shrink-0 border-l px-4 py-4"
       style={{
         background: "rgba(20,26,18,0.92)",

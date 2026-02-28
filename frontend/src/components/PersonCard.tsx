@@ -32,6 +32,7 @@ export function PersonCard({ person, isSelected, onClick }: PersonCardProps) {
   return (
     <motion.div
       data-person-card
+      data-testid={`person-card-${person._id}`}
       initial={{ scale: 0, rotate: rotation - 10, opacity: 0 }}
       animate={{
         scale: 1,

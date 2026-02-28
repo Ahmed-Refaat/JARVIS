@@ -15,6 +15,7 @@ export function DossierView({ person, onClose }: DossierViewProps) {
 
   return (
     <aside
+      data-testid="dossier-view"
       className="w-[360px] shrink-0 border-l px-5 py-4 overflow-y-auto"
       style={{
         background: "linear-gradient(180deg, rgba(20,26,18,0.98), rgba(12,16,10,0.98))",
@@ -41,6 +42,7 @@ export function DossierView({ person, onClose }: DossierViewProps) {
         </div>
         <button
           aria-label="Close dossier"
+          data-testid="close-dossier"
           className="rounded-full border p-2 transition hover:opacity-80"
           style={{ borderColor: "rgba(200,214,176,0.12)" }}
           onClick={onClose}
