@@ -5,9 +5,10 @@ import { Shield, Radio, Eye } from "lucide-react";
 
 interface TopBarProps {
   personCount: number;
+  isLive?: boolean;
 }
 
-export function TopBar({ personCount }: TopBarProps) {
+export function TopBar({ personCount, isLive = false }: TopBarProps) {
   const [clock, setClock] = useState("");
 
   useEffect(() => {
@@ -56,8 +57,8 @@ export function TopBar({ personCount }: TopBarProps) {
       {/* Center status */}
       <div className="flex items-center gap-6 text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}>
         <div className="flex items-center gap-2">
-          <Radio className="w-3 h-3 status-pulse" style={{ color: "var(--intel-green)" }} />
-          <span>AGENTS ONLINE</span>
+          <Radio className="w-3 h-3 status-pulse" style={{ color: isLive ? "var(--intel-green)" : "var(--alert-amber)" }} />
+          <span>{isLive ? "LIVE" : "DEMO"}</span>
         </div>
         <div className="flex items-center gap-2">
           <Eye className="w-3 h-3" style={{ color: "var(--alert-amber)" }} />

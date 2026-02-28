@@ -7,28 +7,29 @@ import { DossierView } from "@/components/DossierView";
 import { LiveFeed } from "@/components/LiveFeed";
 import { StatusBar } from "@/components/StatusBar";
 import { TopBar } from "@/components/TopBar";
-import { demoActivity, demoConnections, demoPersons } from "@/lib/demo-data";
+import { useSpecterData } from "@/hooks/useSpecterData";
 
 export default function Home() {
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(demoPersons[0]?._id ?? null);
+  const { persons, connections, activity, isLive } = useSpecterData();
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(persons[0]?._id ?? null);
 
-  const selectedPerson = demoPersons.find((person) => person._id === selectedPersonId) ?? null;
+  const selectedPerson = persons.find((person) => person._id === selectedPersonId) ?? null;
 
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-dark)" }}>
-      <TopBar personCount={demoPersons.length} />
+      <TopBar personCount={persons.length} isLive={isLive} />
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 relative">
           <Corkboard
-            persons={demoPersons}
-            connections={demoConnections}
+            persons={persons}
+            connections={connections}
             onPersonClick={(id) => setSelectedPersonId(id)}
             selectedPersonId={selectedPersonId}
           />
         </div>
 
-        <LiveFeed activity={demoActivity} onEventClick={(personId) => setSelectedPersonId(personId ?? null)} />
+        <LiveFeed activity={activity} onEventClick={(personId) => setSelectedPersonId(personId ?? null)} />
 
         {selectedPerson && (
           <DossierView
@@ -38,7 +39,7 @@ export default function Home() {
         )}
       </div>
 
-      <StatusBar persons={demoPersons} />
+      <StatusBar persons={persons} />
     </div>
   );
 }
