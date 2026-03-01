@@ -65,11 +65,18 @@ class CloudSkillRunner:
     Two modes:
     1. run_skill(skill_name, task) — guided by a marketplace/cloned skill
     2. run_task(task) — freeform browser task (for deep URL extraction)
+
+    If a profile_id is configured (via BROWSER_USE_PROFILE_ID), all tasks
+    run in a session that inherits synced browser cookies (login states).
+    This is the Browser Use Cloud approach to auth — sync cookies once,
+    use everywhere.
     """
 
     def __init__(self, settings: Settings):
         self._api_key = settings.browser_use_api_key
+        self._profile_id = settings.browser_use_profile_id
         self._client = None
+        self._session_id: str | None = None
 
     @property
     def configured(self) -> bool:
@@ -85,6 +92,39 @@ class CloudSkillRunner:
             return self._client
         except ImportError:
             logger.warning("browser_use_sdk not installed")
+            return None
+
+    async def _ensure_session(self) -> str | None:
+        """Create an authenticated session from synced browser profile.
+
+        The profile stores cookies from all platforms the agent is logged
+        into. Creating a session from it means every task inherits those
+        login states — no passwords, no CAPTCHAs, no 2FA.
+        """
+        if self._session_id:
+            return self._session_id
+        if not self._profile_id:
+            return None
+
+        client = self._get_client()
+        if not client:
+            return None
+
+        try:
+            session = await client.sessions.create_session(
+                profile_id=self._profile_id,
+                proxy_country_code="us",
+                keep_alive=True,
+                persist_memory=True,
+            )
+            self._session_id = session.id
+            logger.info(
+                "cloud_skills: authenticated session {} from profile {}",
+                self._session_id, self._profile_id[:16],
+            )
+            return self._session_id
+        except Exception as exc:
+            logger.warning("cloud_skills: session creation failed: {}", exc)
             return None
 
     async def run_skill(
@@ -156,12 +196,17 @@ class CloudSkillRunner:
         if client is None:
             return None
 
+        # Get authenticated session if profile is configured
+        session_id = await self._ensure_session()
+
         try:
             create_kwargs: dict = {
                 "task": task,
                 "llm": "browser-use-2.0",
                 "max_steps": max_steps,
             }
+            if session_id:
+                create_kwargs["session_id"] = session_id
             if skill_ids:
                 create_kwargs["skill_ids"] = skill_ids
             if secrets:

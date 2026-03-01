@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     pimeyes_email: str | None = Field(default=None, alias="PIMEYES_EMAIL")
     pimeyes_password: str | None = Field(default=None, alias="PIMEYES_PASSWORD")
     sixtyfour_api_key: str | None = Field(default=None, alias="SIXTYFOUR_API_KEY")
+    browser_use_profile_id: str | None = Field(default=None, alias="BROWSER_USE_PROFILE_ID")
 
     def service_flags(self) -> dict[str, bool]:
         return {
@@ -58,6 +59,7 @@ class Settings(BaseSettings):
             "agentmail": bool(self.agentmail_api_key),
             "pimeyes": bool(self.pimeyes_email and self.pimeyes_password),
             "sixtyfour": bool(self.sixtyfour_api_key),
+            "browser_use_profile": bool(self.browser_use_profile_id),
         }
 
 
