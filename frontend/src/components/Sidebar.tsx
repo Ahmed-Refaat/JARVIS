@@ -13,9 +13,9 @@ interface SidebarProps {
 }
 
 const statusColor: Record<string, string> = {
-  complete: "#22c55e",
+  complete: "#4a7c3f",
   scanning: "#f59e0b",
-  inactive: "#4b5563",
+  inactive: "#2a3a24",
 };
 
 export function Sidebar({ people, activePerson, onSelect, search, setSearch }: SidebarProps) {
@@ -26,9 +26,9 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
       {/* Frosted glass panel */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(180deg,rgba(12,18,30,.85),rgba(8,14,25,.9))",
+        background: "linear-gradient(180deg,rgba(16,22,14,.88),rgba(12,16,10,.92))",
         backdropFilter: "blur(20px)",
-        borderRight: "1px solid rgba(255,255,255,.06)",
+        borderRight: "1px solid rgba(120,180,80,.1)",
         boxShadow: "4px 0 30px rgba(0,0,0,.3)",
       }} />
 
@@ -37,13 +37,13 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
 
         {/* Header */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: "#94a3b8", fontSize: 9, fontWeight: 700, letterSpacing: ".14em", marginBottom: 14 }}>
+          <div style={{ color: "rgba(120,180,80,.45)", fontSize: 9, fontWeight: 700, letterSpacing: ".14em", marginBottom: 14 }}>
             TARGETS
           </div>
           {/* Search bar */}
           <div style={{ position: "relative" }}>
             <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a5568" strokeWidth="2" strokeLinecap="round">
+              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(120,180,80,.3)" strokeWidth="2" strokeLinecap="round">
               <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
             </svg>
             <input
@@ -52,12 +52,12 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
               placeholder="Search targets..."
               style={{
                 width: "100%", padding: "9px 12px 9px 32px",
-                background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)",
-                borderRadius: 8, color: "#e2e8f0", fontSize: 12,
+                background: "rgba(120,180,80,.04)", border: "1px solid rgba(120,180,80,.12)",
+                borderRadius: 8, color: "#e8f0d8", fontSize: 12,
                 outline: "none", fontFamily: "inherit", transition: "border-color .2s",
               }}
-              onFocus={e => (e.target.style.borderColor = "rgba(255,255,255,.15)")}
-              onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.08)")}
+              onFocus={e => (e.target.style.borderColor = "rgba(120,180,80,.25)")}
+              onBlur={e => (e.target.style.borderColor = "rgba(120,180,80,.12)")}
             />
           </div>
         </div>
@@ -67,17 +67,17 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
           {filtered.length === 0 && people.length === 0 && (
             /* Empty state — no people scanned yet */
             <div style={{ padding: "40px 12px", textAlign: "center" }}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2a3445" strokeWidth="1.5"
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(120,180,80,.15)" strokeWidth="1.5"
                 style={{ margin: "0 auto 12px", display: "block" }} strokeLinecap="round">
                 <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
                 <line x1="12" y1="1" x2="12" y2="3" /><line x1="18.36" y1="4.64" x2="16.95" y2="6.05" />
               </svg>
-              <div style={{ color: "#3a4a5a", fontSize: 12, lineHeight: 1.5 }}>Start scanning people</div>
-              <div style={{ color: "#2a3445", fontSize: 10, marginTop: 4 }}>Targets will appear here</div>
+              <div style={{ color: "rgba(120,180,80,.3)", fontSize: 12, lineHeight: 1.5 }}>Start scanning people</div>
+              <div style={{ color: "rgba(120,180,80,.15)", fontSize: 10, marginTop: 4 }}>Targets will appear here</div>
             </div>
           )}
           {filtered.length === 0 && people.length > 0 && (
-            <div style={{ padding: "30px 12px", textAlign: "center", color: "#3a4a5a", fontSize: 12 }}>
+            <div style={{ padding: "30px 12px", textAlign: "center", color: "rgba(120,180,80,.25)", fontSize: 12 }}>
               No matching targets
             </div>
           )}
@@ -99,11 +99,11 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 12px", marginBottom: 2, borderRadius: 8,
                   cursor: "pointer",
-                  background: isActive ? "rgba(255,255,255,.07)" : "transparent",
+                  background: isActive ? "rgba(120,180,80,.1)" : "transparent",
                   transition: "all .3s ease",
                   animation: `listSlideIn .4s ease-out ${i * .05}s both`,
                 }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(120,180,80,.06)"; }}
                 onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
               >
                 {/* Status dot */}
@@ -115,14 +115,14 @@ export function Sidebar({ people, activePerson, onSelect, search, setSearch }: S
                 }} />
                 {/* Name */}
                 <div style={{
-                  color: isActive ? "#e2e8f0" : "#8a9bb8", fontSize: 12.5, fontWeight: isActive ? 600 : 500,
+                  color: isActive ? "#e8f0d8" : "rgba(120,180,80,.55)", fontSize: 12.5, fontWeight: isActive ? 600 : 500,
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1,
                   transition: "color .2s",
                 }}>
                   {p.name}
                 </div>
                 {/* Source count */}
-                <div style={{ color: "#3a4a5a", fontSize: 10, fontWeight: 500, flexShrink: 0 }}>
+                <div style={{ color: "rgba(120,180,80,.25)", fontSize: 10, fontWeight: 500, flexShrink: 0 }}>
                   {p.sources.length}
                 </div>
               </div>
