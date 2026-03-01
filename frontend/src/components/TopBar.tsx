@@ -6,9 +6,10 @@ import { Shield, Radio, Eye } from "lucide-react";
 interface TopBarProps {
   personCount: number;
   isLive?: boolean;
+  children?: React.ReactNode;
 }
 
-export function TopBar({ personCount, isLive = false }: TopBarProps) {
+export function TopBar({ personCount, isLive = false, children }: TopBarProps) {
   const [clock, setClock] = useState("");
 
   useEffect(() => {
@@ -66,12 +67,15 @@ export function TopBar({ personCount, isLive = false }: TopBarProps) {
         </div>
       </div>
 
-      {/* Clock */}
-      <div
-        className="text-sm tracking-wider"
-        style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}
-      >
-        {clock}
+      {/* Actions + Clock */}
+      <div className="flex items-center gap-4">
+        {children}
+        <div
+          className="text-sm tracking-wider"
+          style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}
+        >
+          {clock}
+        </div>
       </div>
     </div>
   );

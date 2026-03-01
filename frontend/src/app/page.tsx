@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CaptureButton } from "@/components/CaptureButton";
 import { Corkboard } from "@/components/Corkboard";
 import { DossierView } from "@/components/DossierView";
 import { LiveFeed } from "@/components/LiveFeed";
@@ -17,7 +18,9 @@ export default function Home() {
 
   return (
     <div data-testid="specter-app" className="h-screen w-screen overflow-hidden flex flex-col" style={{ background: "var(--bg-dark)" }}>
-      <TopBar personCount={persons.length} isLive={isLive} />
+      <TopBar personCount={persons.length} isLive={isLive}>
+        <CaptureButton />
+      </TopBar>
 
       <div className="flex-1 flex overflow-hidden">
         <div data-testid="corkboard-container" className="flex-1 relative">
