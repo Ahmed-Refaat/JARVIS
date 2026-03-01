@@ -62,7 +62,7 @@ import { TopBar } from "./TopBar";
 
 const BW = 1100, BH = 680, GW = 168, GH = 108, BDW = 220, BDH = 200, FR = 0, SIDE_W = 270;
 const ZM = [0.48, 1, 1.65];
-const CAM_W = 240, CAM_H = 150, CAM_PAD = 16;
+const CAM_W = 380, CAM_H = 240, CAM_PAD = 16;
 const CAM_ZONE = { x: BW - CAM_W - CAM_PAD - 10, y: CAM_PAD - 10, w: CAM_W + 30, h: CAM_H + 30 };
 
 const PAPERS = [
@@ -238,7 +238,7 @@ function buildBoardData(person: IntelPerson): BoardData {
     const pos = randPos(srcs, blu);
     srcs.push({
       ...s, id: `${person.id}-s${i}`, ...pos,
-      pi: i % 3, ti: i % 3, rot: (Math.random() - .5) * 4, curl: genCurl(), appeared: false, loading: false,
+      pi: i % 3, ti: i % 3, rot: (Math.random() - .5) * 8, curl: genCurl(), appeared: false, loading: false,
     });
   });
   return { blu, srcs };

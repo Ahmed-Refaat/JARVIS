@@ -4,8 +4,8 @@ import { useState } from "react";
 
 import type { StreamStatus } from "@/lib/useGlassesStream";
 
-const CAM_W = 240;
-const CAM_H = 150;
+const CAM_W = 380;
+const CAM_H = 240;
 const CAM_PAD = 16;
 
 interface CameraFeedProps {
@@ -23,8 +23,8 @@ function RoomCodeInput({ onSubmit }: { onSubmit: (code: string) => void }) {
   const enabled = code.length >= 1;
   return (
     <div style={{
-      position: "absolute", bottom: 6, left: 8, right: 8,
-      display: "flex", gap: 4,
+      position: "absolute", bottom: 10, left: 12, right: 12,
+      display: "flex", gap: 6,
     }}>
       <input
         value={code}
@@ -32,10 +32,10 @@ function RoomCodeInput({ onSubmit }: { onSubmit: (code: string) => void }) {
         placeholder="ROOM CODE"
         maxLength={12}
         style={{
-          flex: 1, padding: "3px 6px",
+          flex: 1, padding: "5px 10px",
           background: "rgba(0,0,0,.5)", border: "1px solid rgba(120,180,80,.2)",
-          borderRadius: 2, color: "rgba(120,180,80,.7)",
-          fontSize: 9, fontFamily: "monospace", letterSpacing: ".15em",
+          borderRadius: 3, color: "rgba(120,180,80,.7)",
+          fontSize: 13, fontFamily: "monospace", letterSpacing: ".15em",
           outline: "none", textTransform: "uppercase",
         }}
         onKeyDown={e => { if (e.key === "Enter" && enabled) onSubmit(code); }}
@@ -46,16 +46,16 @@ function RoomCodeInput({ onSubmit }: { onSubmit: (code: string) => void }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
-          padding: "3px 8px",
+          padding: "5px 12px",
           background: enabled
             ? hovered ? "rgba(74,124,63,.6)" : "rgba(74,124,63,.4)"
             : "rgba(0,0,0,.3)",
           border: `1px solid ${enabled && hovered ? "rgba(120,180,80,.4)" : "rgba(120,180,80,.2)"}`,
-          borderRadius: 2,
+          borderRadius: 3,
           color: enabled
             ? hovered ? "rgba(120,180,80,.85)" : "rgba(120,180,80,.6)"
             : "rgba(120,180,80,.6)",
-          fontSize: 8, fontFamily: "monospace", letterSpacing: ".1em",
+          fontSize: 12, fontFamily: "monospace", letterSpacing: ".1em",
           cursor: enabled ? "pointer" : "not-allowed",
           transition: "background .15s, border-color .15s, color .15s",
           boxShadow: enabled && hovered ? "0 0 8px rgba(120,180,80,.15)" : "none",
@@ -111,7 +111,7 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
           }} />
           {/* No-signal icon */}
           <div style={{ position: "absolute", top: "38%", left: "50%", transform: "translate(-50%,-50%)" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3a5030" strokeWidth="1.5" strokeLinecap="round">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3a5030" strokeWidth="1.5" strokeLinecap="round">
               <path d="M16.3 5H4.7A1.7 1.7 0 003 6.7v10.6A1.7 1.7 0 004.7 19h11.6a1.7 1.7 0 001.7-1.7V6.7A1.7 1.7 0 0016.3 5z" />
               <path d="M21 8l-3 2v4l3 2V8z" />
               <line x1="2" y1="2" x2="22" y2="22" stroke="#4a4030" />
@@ -134,7 +134,7 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
             textAlign: "center",
           }}>
             <div style={{
-              fontSize: 9, fontFamily: "monospace", color: "rgba(120,180,80,.5)",
+              fontSize: 14, fontFamily: "monospace", color: "rgba(120,180,80,.5)",
               letterSpacing: ".15em", animation: "scanPulse 1.5s ease-in-out infinite",
             }}>
               CONNECTING...
@@ -155,7 +155,7 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
             textAlign: "center", width: "85%",
           }}>
             <div style={{
-              fontSize: 8, fontFamily: "monospace", color: "rgba(239,68,68,.6)",
+              fontSize: 12, fontFamily: "monospace", color: "rgba(239,68,68,.6)",
               letterSpacing: ".1em", lineHeight: 1.4,
             }}>
               {error || "CONNECTION FAILED"}
@@ -175,10 +175,10 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
       {/* Detection count badge */}
       {isLive && detectionCount !== undefined && detectionCount > 0 && (
         <div style={{
-          position: "absolute", top: 8, left: 8,
-          padding: "2px 6px", borderRadius: 2,
+          position: "absolute", top: 12, left: 12,
+          padding: "3px 9px", borderRadius: 3,
           background: "rgba(0,0,0,.6)", border: "1px solid rgba(120,180,80,.25)",
-          fontSize: 8, fontFamily: "monospace", color: "rgba(120,180,80,.8)",
+          fontSize: 12, fontFamily: "monospace", color: "rgba(120,180,80,.8)",
           letterSpacing: ".08em",
         }}>
           {detectionCount} DETECTED
@@ -190,10 +190,10 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
         <button
           onClick={onDisconnect}
           style={{
-            position: "absolute", bottom: 6, right: 6,
-            padding: "2px 6px", borderRadius: 2,
+            position: "absolute", bottom: 10, right: 10,
+            padding: "3px 9px", borderRadius: 3,
             background: "rgba(0,0,0,.5)", border: "1px solid rgba(239,68,68,.3)",
-            fontSize: 7, fontFamily: "monospace", color: "rgba(239,68,68,.6)",
+            fontSize: 11, fontFamily: "monospace", color: "rgba(239,68,68,.6)",
             letterSpacing: ".1em", cursor: "pointer",
           }}
         >
@@ -203,7 +203,7 @@ export function CameraFeed({ videoRef, status, onConnect, onDisconnect, error, d
 
       {/* Status dot */}
       <div style={{
-        position: "absolute", top: 8, right: 8, width: 7, height: 7, borderRadius: "50%",
+        position: "absolute", top: 12, right: 12, width: 10, height: 10, borderRadius: "50%",
         background: isLive
           ? "radial-gradient(circle,#4ade80,#22c55e)"
           : isConnecting
