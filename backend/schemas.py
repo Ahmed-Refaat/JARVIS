@@ -62,3 +62,48 @@ class FrameProcessedResponse(BaseModel):
     new_persons: int
     timestamp: int
     source: str
+
+
+# --- Browser Use agent research ---
+
+
+class AgentStartRequest(BaseModel):
+    person_id: str
+    person_name: str
+    sources: list[str] = Field(default_factory=lambda: ["linkedin", "twitter", "google"])
+
+
+class AgentInfo(BaseModel):
+    source_tp: str
+    source_nm: str
+    session_id: str
+    task_id: str
+    live_url: str | None = None
+    session_status: Literal["pending", "running", "completed", "failed"] = "running"
+
+
+class AgentStartResponse(BaseModel):
+    person_id: str
+    agents: list[AgentInfo]
+
+
+class TaskStep(BaseModel):
+    number: int
+    url: str | None = None
+    screenshot_url: str | None = None
+    next_goal: str | None = None
+
+
+class TaskInfo(BaseModel):
+    task_id: str
+    status: str | None = None
+    steps: list[TaskStep] = Field(default_factory=list)
+    output: str | None = None
+
+
+class SessionStatusResponse(BaseModel):
+    session_id: str
+    session_status: Literal["pending", "running", "completed", "failed"] = "pending"
+    live_url: str | None = None
+    share_url: str | None = None
+    task: TaskInfo | None = None
