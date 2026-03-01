@@ -42,14 +42,6 @@ export function StatusBar({ people, activePerson }: StatusBarProps) {
     return `${h}:${m}:${sec}`;
   };
 
-  const totalSources = people.reduce((acc, p) => acc + p.sources.length, 0);
-
-  const counts = {
-    scanning: people.filter(p => p.status === "scanning").length,
-    complete: people.filter(p => p.status === "complete").length,
-    inactive: people.filter(p => p.status === "inactive").length,
-  };
-
   // Rotate through events every 4s
   useEffect(() => {
     const id = setInterval(() => {
@@ -130,33 +122,12 @@ export function StatusBar({ people, activePerson }: StatusBarProps) {
         fontSize: 10,
       }}
     >
-      {/* LEFT — Status counts (active target only) */}
+      {/* LEFT — Active target */}
       {activePerson && (
-        <div className="flex items-center gap-5 shrink-0">
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--status-pending)", flexShrink: 0 }} />
-            PENDING:{" "}
-            <span style={{ color: "var(--text-ui)" }}>{counts.inactive}</span>
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{
-              display: "inline-block", width: 6, height: 6, borderRadius: "50%",
-              background: "var(--status-researching)", flexShrink: 0,
-              animation: counts.scanning > 0 ? "scanPulse 2s ease-in-out infinite" : "none",
-            }} />
-            RESEARCHING:{" "}
-            <span style={{ color: "var(--text-ui)" }}>{counts.scanning}</span>
-          </span>
-          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--status-complete)", flexShrink: 0 }} />
-            COMPLETE:{" "}
-            <span style={{ color: "var(--text-ui)" }}>{counts.complete}</span>
-          </span>
-
-          <span style={{ color: "rgba(120,180,80,.2)" }}>│</span>
-          <span style={{ color: "rgba(120,180,80,.5)" }}>
+        <div className="flex items-center shrink-0">
+          <span style={{ color: "rgba(170,210,140,.7)" }}>
             ACTIVE:{" "}
-            <span style={{ color: "var(--intel-green)", letterSpacing: ".04em" }}>
+            <span style={{ color: "rgba(170,210,140,.95)", letterSpacing: ".04em", fontWeight: 600 }}>
               {activePerson.name.toUpperCase()}
             </span>
           </span>
@@ -172,14 +143,14 @@ export function StatusBar({ people, activePerson }: StatusBarProps) {
           <div style={{
             width: "100%", textAlign: "center",
             opacity: tick ? 1 : 0, transition: "opacity .2s ease",
-            color: "rgba(120,180,80,.45)", letterSpacing: ".04em",
+            letterSpacing: ".04em",
             whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden",
           }}>
-            <span style={{ color: "rgba(120,180,80,.25)" }}>[{evt.time}]</span>
+            <span style={{ color: "rgba(170,210,140,.4)" }}>[{evt.time}]</span>
             {" "}
-            <span style={{ color: "rgba(120,180,80,.55)" }}>{evt.agent}:</span>
+            <span style={{ color: "rgba(170,210,140,.75)" }}>{evt.agent}:</span>
             {" "}
-            {evt.msg}
+            <span style={{ color: "rgba(170,210,140,.6)" }}>{evt.msg}</span>
           </div>
         ) : (
           <canvas
@@ -189,14 +160,10 @@ export function StatusBar({ people, activePerson }: StatusBarProps) {
         )}
       </div>
 
-      {/* RIGHT — Totals + analytics (active target only) */}
+      {/* RIGHT — Session timer (active target only) */}
       {activePerson && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <span>SOURCES: <span style={{ color: "var(--text-ui)" }}>{totalSources}</span></span>
-          <span style={{ color: "rgba(120,180,80,.2)" }}>│</span>
-          <span>SESSION: <span style={{ color: "var(--text-ui)" }}>{formatElapsed(elapsed)}</span></span>
-          <span style={{ color: "rgba(120,180,80,.2)" }}>│</span>
-          <span>TARGETS ACQUIRED: <span style={{ color: "var(--text-ui)" }}>{people.length}</span></span>
+        <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <span style={{ color: "rgba(170,210,140,.7)" }}>SESSION: <span style={{ color: "rgba(170,210,140,.95)", fontWeight: 600 }}>{formatElapsed(elapsed)}</span></span>
         </div>
       )}
     </div>
