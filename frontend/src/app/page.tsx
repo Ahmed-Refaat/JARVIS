@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence } from "framer-motion";
 
 import { CaptureButton } from "@/components/CaptureButton";
 import { Corkboard } from "@/components/Corkboard";
@@ -34,12 +35,15 @@ export default function Home() {
 
         <LiveFeed activity={activity} onEventClick={(personId) => setSelectedPersonId(personId ?? null)} />
 
-        {selectedPerson && (
-          <DossierView
-            person={selectedPerson}
-            onClose={() => setSelectedPersonId(null)}
-          />
-        )}
+        <AnimatePresence mode="wait">
+          {selectedPerson && (
+            <DossierView
+              key={selectedPerson._id}
+              person={selectedPerson}
+              onClose={() => setSelectedPersonId(null)}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       <StatusBar persons={persons} />
