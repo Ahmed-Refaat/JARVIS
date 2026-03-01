@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { demoPeople } from "@/lib/demo-data";
-import type { IntelPerson, IntelSource } from "@/lib/types";
+import type { IntelPerson, IntelSource, IntelSourceSessionStatus } from "@/lib/types";
 import { useFrameCapture } from "@/lib/useFrameCapture";
 import { useGlassesStream } from "@/lib/useGlassesStream";
+import { BrowserSessionViewer } from "./BrowserSessionViewer";
 import { CameraFeed } from "./CameraFeed";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
@@ -249,6 +250,10 @@ interface SelDoc {
   nm?: string;
   tp?: string;
   sn?: string;
+  sessionId?: string;
+  liveUrl?: string;
+  shareUrl?: string;
+  sessionStatus?: IntelSourceSessionStatus;
 }
 
 export default function IntelBoard() {
@@ -604,7 +609,10 @@ export default function IntelBoard() {
                   <div
                     key={s.id}
                     onMouseDown={e => !s.loading && startDrag(e, s.id, s.x, s.y)}
-                    onClick={() => !s.loading && clickDoc({ kind: "source", id: s.id, nm: s.nm, tp: s.tp, sn: s.sn })}
+                    onClick={() => !s.loading && clickDoc({
+                      kind: "source", id: s.id, nm: s.nm, tp: s.tp, sn: s.sn,
+                      sessionId: s.sessionId, liveUrl: s.liveUrl, shareUrl: s.shareUrl, sessionStatus: s.sessionStatus,
+                    })}
                     style={{
                       position: "absolute", left: s.x, top: s.y, width: GW, height: GH,
                       background: p.bg, border: `1px solid ${p.bd}`, borderRadius: 2,
@@ -623,6 +631,13 @@ export default function IntelBoard() {
                     <CurlOverlay curl={s.curl} />
                     {s.loading ? <Shimmer pi={s.pi} /> : (
                       <div style={{ position: "relative", zIndex: 1 }}>
+                        {s.sessionStatus === "running" && (
+                          <div style={{
+                            position: "absolute", top: -8, right: -5, width: 7, height: 7,
+                            borderRadius: "50%", background: "#4ade80",
+                            animation: "camPulse 2s ease-in-out infinite", zIndex: 5,
+                          }} />
+                        )}
                         <div style={{ marginBottom: 5 }}>
                           <span style={{
                             color: "#065f46", fontSize: 7, fontWeight: 700, letterSpacing: ".1em",
@@ -658,7 +673,9 @@ export default function IntelBoard() {
         }}>
           <div onClick={e => e.stopPropagation()} style={{
             position: "relative",
-            width: 520, maxHeight: "80vh", overflowY: "auto",
+            width: selDoc.sessionId ? 760 : 520,
+            maxHeight: selDoc.sessionId ? "90vh" : "80vh",
+            overflowY: "auto",
             background: "#0e0e11",
             border: "1px solid rgba(255,255,255,.08)",
             borderRadius: 2, padding: "24px 28px 28px",
@@ -704,6 +721,17 @@ export default function IntelBoard() {
                 </div>
                 <div style={{ height: 1, background: "rgba(255,255,255,.07)", marginBottom: 16 }} />
                 <div style={{ color: "#a1a1aa", fontSize: 13, lineHeight: 1.75 }}>{activePerson.summary.sm}</div>
+              </div>
+            ) : selDoc.sessionId ? (
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <BrowserSessionViewer
+                  sessionId={selDoc.sessionId}
+                  sessionStatus={selDoc.sessionStatus ?? "pending"}
+                  liveUrl={selDoc.liveUrl}
+                  shareUrl={selDoc.shareUrl}
+                  sourceNm={selDoc.nm ?? ""}
+                  sourceTp={selDoc.tp ?? ""}
+                />
               </div>
             ) : (
               <div style={{ position: "relative", zIndex: 1 }}>

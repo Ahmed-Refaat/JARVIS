@@ -66,10 +66,18 @@ export interface ActivityRecord {
 // IntelBoard v5 types
 export type IntelPersonStatus = "complete" | "scanning" | "inactive";
 
+export type IntelSourceSessionStatus = "pending" | "running" | "completed" | "failed";
+
 export interface IntelSource {
   nm: string;
   tp: string;
   sn: string;
+  url?: string;
+  sessionId?: string;
+  taskId?: string;
+  liveUrl?: string;
+  shareUrl?: string;
+  sessionStatus?: IntelSourceSessionStatus;
 }
 
 export interface IntelSummary {

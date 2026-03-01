@@ -136,8 +136,19 @@ export const demoPeople: IntelPerson[] = [
       location: "New York, NY",
     },
     sources: [
-      { nm: "Crunchbase Profile", tp: "CORPORATE", sn: "Managing Partner at Apex Ventures. 23 portfolio companies, 4 exits. Focus on AI/ML and cybersecurity." },
-      { nm: "Twitter/X Activity", tp: "SOCIAL", sn: "Active in AI policy circles. Recent posts about export control reform and ITAR regulations." },
+      {
+        nm: "Crunchbase Profile", tp: "CORPORATE",
+        sn: "Managing Partner at Apex Ventures. 23 portfolio companies, 4 exits. Focus on AI/ML and cybersecurity.",
+        sessionId: "ses_demo_crunchbase", taskId: "tsk_demo_crunchbase_01",
+        shareUrl: "https://browser-use.com/share/demo-crunchbase",
+        sessionStatus: "completed", url: "https://crunchbase.com/person/marcus-chen",
+      },
+      {
+        nm: "Twitter/X Activity", tp: "SOCIAL",
+        sn: "Active in AI policy circles. Recent posts about export control reform and ITAR regulations.",
+        sessionId: "ses_demo_twitter", taskId: "tsk_demo_twitter_01",
+        sessionStatus: "running", url: "https://twitter.com/search?q=marcus+chen",
+      },
     ],
   },
   {
