@@ -17,6 +17,22 @@ wheels = [
 ]
 
 [[package]]
+name = "agentmail"
+version = "0.2.22"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "typing-extensions" },
+    { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/85/6bffc2813c66e3613232c04d64cf0d6f2bf6cfb999269964517284165de5/agentmail-0.2.22.tar.gz", hash = "sha256:811f0f8cd008d8e6e0c2dc464df36160ba9d5a61fb38193ae4744a0bdbb08d30", size = 95070 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/2f/0c86e0b538ea2fe85f1b8237cfbfc7eb4e29b301d8eab30bed50c87bd028/agentmail-0.2.22-py3-none-any.whl", hash = "sha256:5055bc1d5f81a613c6ad74ab71a9d9951679ce4f7f40e77c89a8058af127e7af", size = 212217 },
+]
+
+[[package]]
 name = "aiofiles"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6211,8 +6227,10 @@ name = "specter-backend"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agentmail" },
     { name = "anthropic" },
     { name = "browser-use" },
+    { name = "browser-use-sdk" },
     { name = "exa-py" },
     { name = "fastapi" },
     { name = "google-genai" },
@@ -6246,8 +6264,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agentmail", specifier = ">=0.2.22" },
     { name = "anthropic", specifier = ">=0.52.0" },
     { name = "browser-use", specifier = ">=0.12.0" },
+    { name = "browser-use-sdk", specifier = ">=2.0.15" },
     { name = "exa-py", specifier = ">=2.6.1" },
     { name = "fastapi", specifier = ">=0.116.0" },
     { name = "google-genai", specifier = ">=1.60.0" },

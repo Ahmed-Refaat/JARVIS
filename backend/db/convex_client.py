@@ -138,6 +138,32 @@ class ConvexGateway:
             logger.error("Convex list_persons_with_dossiers failed: {}", exc)
             raise
 
+    async def store_intel_fragment(
+        self,
+        person_id: str,
+        source: str,
+        content: str,
+        *,
+        urls: list[str] | None = None,
+        confidence: float = 1.0,
+    ) -> str | None:
+        """Push a single intel fragment to Convex for real-time frontend updates."""
+        if not self.configured:
+            return None
+
+        try:
+            result = await self._mutation("intelFragments:create", {
+                "personId": person_id,
+                "source": source,
+                "content": content,
+                "urls": urls or [],
+                "confidence": confidence,
+            })
+            return result if isinstance(result, str) else None
+        except Exception as exc:
+            logger.warning("Convex store_intel_fragment failed: {}", exc)
+            return None
+
     async def create_connection(
         self,
         person_a_id: str,

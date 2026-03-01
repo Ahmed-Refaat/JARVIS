@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from uuid import uuid4
 
@@ -10,7 +11,8 @@ from PIL import Image
 
 from typing import Any
 
-from agents.models import OrchestratorResult, ResearchRequest
+from agents.deep_researcher import DeepResearcher
+from agents.models import AgentResult, AgentStatus, OrchestratorResult, ResearchRequest
 from agents.orchestrator import ResearchOrchestrator
 from capture.frame_extractor import extract_frames
 from db import DatabaseGateway
@@ -68,6 +70,7 @@ class CapturePipeline:
         self._synthesis = synthesis_engine
         self._synthesis_fallback = synthesis_fallback
         self._supermemory = supermemory
+        self._deep_researcher: DeepResearcher | None = None
 
     @traced("pipeline.process")
     async def process(
@@ -471,11 +474,58 @@ class CapturePipeline:
 
     @traced("pipeline.browser_research")
     async def _run_browser_research(self, person_name: str) -> OrchestratorResult | None:
+        """Run deep research using DeepResearcher (preferred) or old orchestrator (fallback)."""
+        if self._deep_researcher:
+            # Use DeepResearcher: collect all results into an OrchestratorResult
+            request = ResearchRequest(person_name=person_name)
+            agent_results: dict[str, AgentResult] = {}
+            all_profiles: list = []
+            all_snippets: list[str] = []
+
+            async for result in self._deep_researcher.research(request):
+                agent_results[result.agent_name] = result
+                all_profiles.extend(result.profiles)
+                all_snippets.extend(result.snippets)
+
+            return OrchestratorResult(
+                person_name=person_name,
+                agent_results=agent_results,
+                all_profiles=all_profiles,
+                all_snippets=all_snippets,
+                success=bool(agent_results),
+            )
+
         if not self._orchestrator:
             return None
         return await self._orchestrator.research_person(
             ResearchRequest(person_name=person_name),
         )
+
+    async def stream_research(
+        self,
+        person_name: str,
+        person_id: str | None = None,
+    ) -> AsyncGenerator[AgentResult, None]:
+        """Stream research results as an async generator for SSE endpoints.
+
+        Optionally pushes each result to Convex as an intel fragment.
+        """
+        if not self._deep_researcher:
+            return
+
+        request = ResearchRequest(person_name=person_name)
+        async for result in self._deep_researcher.research(request):
+            # Push to Convex as intel fragment if we have a person_id and a Convex gateway
+            if person_id and hasattr(self._db, "store_intel_fragment"):
+                content = " | ".join(result.snippets[:3]) if result.snippets else ""
+                await self._db.store_intel_fragment(
+                    person_id=person_id,
+                    source=result.agent_name,
+                    content=content[:1000],
+                    urls=result.urls_found[:10],
+                    confidence=result.confidence,
+                )
+            yield result
 
     @staticmethod
     def _merge_to_synthesis_request(

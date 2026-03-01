@@ -1,10 +1,11 @@
 """Base browser agent wrapper around browser-use with timeout and error handling.
 
-# RESEARCH: Checked browser-use (47k stars, updated Feb 2026, official SDK v0.12.0)
-# DECISION: Using browser-use directly — official library, well-maintained, async-native
-# ALT: playwright raw (more control, more boilerplate)
-# NOTE: Cloud mode uses Browser(use_cloud=True) + ChatBrowserUse(). SDK reads
-#   BROWSER_USE_API_KEY from env automatically. Cloud sessions persist cookies/auth.
+# RESEARCH: Checked browser-use (47k stars, updated Feb 2026, SDK v0.12.0, BU 2.0 model)
+# DECISION: Using browser-use directly with BU 2.0 model (+12% accuracy over 1.0)
+# ALT: v3 SDK experimental API (too new, may break)
+# NOTE: Cloud mode uses Browser(use_cloud=True) + ChatBrowserUse(model="bu-2-0").
+#   SDK reads BROWSER_USE_API_KEY from env automatically.
+#   Cloud sessions persist cookies/auth for authenticated platform access.
 """
 
 from __future__ import annotations
@@ -21,7 +22,8 @@ from agents.models import AgentResult, AgentStatus, ResearchRequest
 from config import Settings
 from observability.laminar import traced
 
-DEFAULT_TIMEOUT_SECONDS = 180.0
+DEFAULT_TIMEOUT_SECONDS = 90.0
+SIGNUP_PASSWORD = "Specter2026!"
 
 
 class BaseBrowserAgent(ABC):
@@ -29,12 +31,18 @@ class BaseBrowserAgent(ABC):
 
     Handles timeout enforcement, error isolation, structured logging,
     and Browser Use cloud session management with persistent auth.
+    AgentMail integration provides disposable signup emails as fallback
+    when agents hit login walls. Supports shared InboxPool for zero-latency
+    email acquisition across parallel agents.
     """
 
     agent_name: str = "base"
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, inbox_pool=None):
         self._settings = settings
+        self._agentmail = None  # lazy-init
+        self._inbox_pool = inbox_pool  # shared pool from orchestrator
+        self._signup_email: str | None = None
         # Ensure BROWSER_USE_API_KEY is in os.environ so the SDK picks it up
         if settings.browser_use_api_key and not os.environ.get("BROWSER_USE_API_KEY"):
             os.environ["BROWSER_USE_API_KEY"] = settings.browser_use_api_key
@@ -117,6 +125,79 @@ class BaseBrowserAgent(ABC):
                 completed_at=datetime.now(UTC),
             )
 
+    def _get_agentmail(self):
+        """Lazy-init AgentMailClient. Returns None if API key not set."""
+        if self._agentmail is not None:
+            return self._agentmail
+
+        if not self._settings.agentmail_api_key:
+            return None
+
+        try:
+            from agents.agentmail_client import AgentMailClient
+
+            self._agentmail = AgentMailClient(api_key=self._settings.agentmail_api_key)
+            if self._agentmail.configured:
+                logger.debug("agent={} agentmail client ready", self.agent_name)
+                return self._agentmail
+            self._agentmail = None
+        except Exception as exc:
+            logger.warning("agent={} agentmail init failed: {}", self.agent_name, exc)
+            self._agentmail = None
+
+        return None
+
+    def _get_signup_email(self) -> str | None:
+        """Get a disposable email for signup fallback.
+
+        Tries the shared InboxPool first (zero latency if pre-warmed),
+        falls back to creating on-demand via AgentMailClient.
+        Caches the email so repeated calls return the same inbox.
+        """
+        if self._signup_email:
+            return self._signup_email
+
+        # Try shared pool first (pre-warmed, instant)
+        if self._inbox_pool is not None:
+            email = self._inbox_pool.acquire(self.agent_name)
+            if email:
+                self._signup_email = email
+                logger.info("agent={} signup_email={} (from pool)", self.agent_name, email)
+                return email
+
+        # Fallback to on-demand creation
+        client = self._get_agentmail()
+        if client is None:
+            return None
+
+        try:
+            inbox = client.create_inbox(label=f"specter-{self.agent_name}")
+            self._signup_email = inbox["email"]
+            logger.info("agent={} signup_email={} (on-demand)", self.agent_name, self._signup_email)
+            return self._signup_email
+        except Exception as exc:
+            logger.warning("agent={} failed to create signup inbox: {}", self.agent_name, exc)
+            return None
+
+    def _login_wall_fallback_instruction(self) -> str:
+        """Return a task instruction snippet for login-wall bypass via AgentMail signup.
+
+        Returns empty string if AgentMail is not configured (no-op in prompt).
+        Does NOT eagerly acquire an inbox -- that happens lazily in _create_browser_agent.
+        """
+        has_agentmail = bool(
+            (self._inbox_pool is not None)
+            or self._settings.agentmail_api_key
+        )
+        if not has_agentmail:
+            return ""
+        return (
+            "\n\nIMPORTANT: If you are blocked by a login wall or sign-up screen, "
+            "create a new account using email {signup_email} with password "
+            "{signup_password}. After signing up, check for a verification email "
+            "and complete the verification if required, then continue with the task."
+        )
+
     def _build_search_query(self, request: ResearchRequest) -> str:
         """Build a search query string from the request."""
         parts = [request.person_name]
@@ -130,13 +211,13 @@ class BaseBrowserAgent(ABC):
         Prefers ChatBrowserUse (optimized for browser automation, 3-5x faster).
         Falls back to ChatOpenAI with gpt-4o-mini if OPENAI_API_KEY is set.
         """
-        # Prefer ChatBrowserUse when we have a Browser Use API key (cloud mode)
+        # Prefer ChatBrowserUse with BU 2.0 model (+12% accuracy over 1.0)
         if self._settings.browser_use_api_key:
             try:
                 from browser_use import ChatBrowserUse
 
-                logger.debug("agent={} using ChatBrowserUse LLM", self.agent_name)
-                return ChatBrowserUse()
+                logger.debug("agent={} using ChatBrowserUse bu-2-0", self.agent_name)
+                return ChatBrowserUse(model="bu-2-0")
             except (ImportError, Exception) as exc:
                 logger.debug(
                     "agent={} ChatBrowserUse unavailable ({}), trying ChatOpenAI",
@@ -156,30 +237,46 @@ class BaseBrowserAgent(ABC):
 
         raise RuntimeError("No LLM configured: set BROWSER_USE_API_KEY or OPENAI_API_KEY")
 
-    def _create_browser_agent(self, task: str):
-        """Create a Browser Use Agent with cloud or local browser.
+    def _create_browser_agent(
+        self, task: str, *, max_steps: int = 10, needs_login: bool = False,
+    ):
+        """Create a Browser Use Agent optimized for speed.
 
-        Cloud mode (BROWSER_USE_API_KEY set):
-          - Creates Browser(use_cloud=True) for stealth cloud browser with proxy rotation,
-            CAPTCHA bypass, and persistent cookie/auth sessions
-          - Uses ChatBrowserUse() as the LLM (optimized for browser automation)
-          - The SDK reads BROWSER_USE_API_KEY from os.environ automatically
+        Speed optimizations:
+          - flash_mode=True for faster LLM responses
+          - max_failures=2 to fail fast instead of retrying 5x
+          - enable_planning=False to skip planning overhead on focused tasks
+          - step_timeout=60 to kill stuck navigation steps quickly
+          - max_actions_per_step=3 to keep each step small
+          - use_vision="auto" to only send screenshots when needed
 
-        Local mode (no BROWSER_USE_API_KEY, OPENAI_API_KEY set):
-          - Falls back to headless local Chromium via Playwright
-          - Uses ChatOpenAI(gpt-4o-mini) as the LLM
-
-        To set up authenticated sessions for cloud mode:
-          1. Set BROWSER_USE_API_KEY in your .env
-          2. Run: export BROWSER_USE_API_KEY=<key> && curl -fsSL https://browser-use.com/profile.sh | sh
-          3. Log into LinkedIn, Twitter, Instagram in the opened browser
-          4. Sessions persist in your Browser Use cloud profile
-          5. All subsequent agent runs reuse those authenticated sessions
+        Args:
+            needs_login: If True, creates an AgentMail inbox and injects signup
+                credentials. Set False for Google-first agents that never navigate
+                to login-walled sites.
         """
         from browser_use import Agent
 
         llm = self._build_llm()
-        agent_kwargs: dict = {"task": task, "llm": llm}
+        agent_kwargs: dict = {
+            "task": task,
+            "llm": llm,
+            "max_failures": 2,
+            "flash_mode": True,
+            "enable_planning": False,
+            "step_timeout": 60,
+            "max_actions_per_step": 3,
+            "use_vision": "auto",
+        }
+
+        # Only inject signup credentials for agents that might hit login walls
+        if needs_login and (self._inbox_pool is not None or self._settings.agentmail_api_key):
+            signup_email = self._get_signup_email()
+            if signup_email:
+                agent_kwargs["sensitive_data"] = {
+                    "signup_email": signup_email,
+                    "signup_password": SIGNUP_PASSWORD,
+                }
 
         if self._settings.browser_use_api_key:
             try:
@@ -188,7 +285,7 @@ class BaseBrowserAgent(ABC):
                 browser = Browser(use_cloud=True)
                 agent_kwargs["browser"] = browser
                 logger.debug(
-                    "agent={} using Browser Use cloud (BROWSER_USE_API_KEY set)",
+                    "agent={} using Browser Use cloud",
                     self.agent_name,
                 )
             except Exception as exc:

@@ -10,6 +10,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from agents.deep_researcher import DeepResearcher
 from agents.orchestrator import ResearchOrchestrator
 from capture.service import CaptureService
 from capture.telegram_bot import TelegramCaptureBot, create_telegram_bot
@@ -25,6 +26,7 @@ from identification.embedder import ArcFaceEmbedder
 from memory.supermemory_client import SuperMemoryClient
 from pipeline import CapturePipeline
 from schemas import HealthResponse, IdentifyRequest, IdentifyResponse, ServiceStatus, TaskPhase
+from sse_starlette.sse import EventSourceResponse
 from synthesis.anthropic_engine import AnthropicSynthesisEngine
 from synthesis.engine import GeminiSynthesisEngine
 from tasks import TASK_PHASES
@@ -44,12 +46,15 @@ db_gateway = convex_gw if convex_gw.configured else InMemoryDatabaseGateway()
 
 # Enrichment + research + synthesis (None when API keys missing)
 exa_client = ExaEnrichmentClient(settings) if settings.exa_api_key else None
-orchestrator = ResearchOrchestrator(settings) if settings.browser_use_api_key else None
+orchestrator = ResearchOrchestrator(settings) if (settings.browser_use_api_key or settings.openai_api_key) else None
 synthesis_engine = AnthropicSynthesisEngine(settings) if settings.anthropic_api_key else None
 synthesis_fallback = GeminiSynthesisEngine(settings) if settings.gemini_api_key else None
 
 # SuperMemory for person dossier caching (None when API key missing)
 supermemory_client = SuperMemoryClient(settings.supermemory_api_key) if settings.supermemory_api_key else None
+
+# DeepResearcher — unified pipeline (replaces per-agent orchestrator)
+deep_researcher = DeepResearcher(settings) if settings.browser_use_api_key else None
 
 pipeline = CapturePipeline(
     detector=detector,
@@ -61,6 +66,9 @@ pipeline = CapturePipeline(
     synthesis_fallback=synthesis_fallback,
     supermemory=supermemory_client,
 )
+# Wire DeepResearcher into pipeline for streaming mode
+if deep_researcher:
+    pipeline._deep_researcher = deep_researcher
 
 capture_service = CaptureService(pipeline=pipeline)
 upload_file = File(...)
@@ -210,3 +218,32 @@ async def get_person(person_id: str):
     if person is None:
         raise HTTPException(status_code=404, detail=f"Person {person_id} not found")
     return person
+
+
+@app.get("/api/research/{person_name}/stream")
+async def stream_research(person_name: str):
+    """SSE endpoint: stream research results as they arrive.
+
+    Each event contains an AgentResult JSON. Final event is type='complete'.
+    Frontend can consume with EventSource or fetch + ReadableStream.
+    """
+    if not deep_researcher:
+        raise HTTPException(
+            status_code=503,
+            detail="Browser Use API key not configured — streaming unavailable",
+        )
+
+    person_id = f"stream_{uuid4().hex[:12]}"
+
+    async def event_generator():
+        from agents.models import ResearchRequest
+
+        request = ResearchRequest(person_name=person_name)
+        async for result in pipeline.stream_research(person_name, person_id):
+            yield {
+                "event": "result",
+                "data": result.model_dump_json(),
+            }
+        yield {"event": "complete", "data": "{}"}
+
+    return EventSourceResponse(event_generator())

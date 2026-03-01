@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     daytona_api_key: str | None = Field(default=None, alias="DAYTONA_API_KEY")
     daytona_api_url: str | None = Field(default=None, alias="DAYTONA_API_URL")
     hud_api_key: str | None = Field(default=None, alias="HUD_API_KEY")
+    agentmail_api_key: str | None = Field(default=None, alias="AGENTMAIL_API_KEY")
+    pimeyes_email: str | None = Field(default=None, alias="PIMEYES_EMAIL")
+    pimeyes_password: str | None = Field(default=None, alias="PIMEYES_PASSWORD")
+    sixtyfour_api_key: str | None = Field(default=None, alias="SIXTYFOUR_API_KEY")
 
     def service_flags(self) -> dict[str, bool]:
         return {
@@ -51,6 +55,9 @@ class Settings(BaseSettings):
             "supermemory": bool(self.supermemory_api_key),
             "daytona": bool(self.daytona_api_key),
             "hud": bool(self.hud_api_key),
+            "agentmail": bool(self.agentmail_api_key),
+            "pimeyes": bool(self.pimeyes_email and self.pimeyes_password),
+            "sixtyfour": bool(self.sixtyfour_api_key),
         }
 
 

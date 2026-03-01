@@ -8,6 +8,30 @@ from enum import StrEnum
 from pydantic import BaseModel, Field
 
 
+def parse_human_number(value) -> int | None:
+    """Parse human-readable numbers like '5.5K+', '10M', '1,234' into integers."""
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    s = str(value).strip().replace(",", "").replace("+", "").upper()
+    if not s:
+        return None
+    multipliers = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000}
+    for suffix, mult in multipliers.items():
+        if s.endswith(suffix):
+            try:
+                return int(float(s[:-1]) * mult)
+            except (ValueError, TypeError):
+                return None
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return None
+
+
 class AgentStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
@@ -40,6 +64,7 @@ class AgentResult(BaseModel):
     snippets: list[str] = Field(default_factory=list)
     urls_found: list[str] = Field(default_factory=list)
     error: str | None = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     duration_seconds: float = 0.0
     started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
@@ -52,7 +77,7 @@ class ResearchRequest(BaseModel):
     company: str | None = None
     face_search_urls: list[str] = Field(default_factory=list)
     additional_context: str | None = None
-    timeout_seconds: float = 180.0
+    timeout_seconds: float = 90.0
 
 
 class OrchestratorResult(BaseModel):

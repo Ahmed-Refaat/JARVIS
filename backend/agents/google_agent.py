@@ -19,8 +19,8 @@ class GoogleAgent(BaseBrowserAgent):
 
     agent_name = "google"
 
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
+    def __init__(self, settings: Settings, *, inbox_pool=None):
+        super().__init__(settings, inbox_pool=inbox_pool)
 
     async def _run_task(self, request: ResearchRequest) -> AgentResult:
         if not self.configured:
@@ -35,15 +35,17 @@ class GoogleAgent(BaseBrowserAgent):
 
         try:
             task = (
-                f"Go to google.com and search for '{query}'. "
-                f"Look through the first page of results. "
-                f"Extract: any social media profile links (LinkedIn, Twitter, Instagram, GitHub), "
-                f"any company affiliations, job titles, notable achievements, "
-                f"news articles about them, and any other relevant personal information. "
-                f"List each finding with its source URL."
+                f"Go to https://www.google.com/search?q={query.replace(' ', '+')} "
+                f"and use the extract tool to pull from the FIRST page only:\n"
+                f"- Social media profile links (LinkedIn, Twitter/X, Instagram, GitHub)\n"
+                f"- Company affiliations and job titles\n"
+                f"- News articles and notable mentions\n"
+                f"- Personal website or blog\n"
+                f"Do NOT scroll. Do NOT click into results. "
+                f"After extracting, immediately call done with the result."
             )
 
-            agent = self._create_browser_agent(task)
+            agent = self._create_browser_agent(task, max_steps=3)
             result = await agent.run()
             final_result = result.final_result() if result else None
 

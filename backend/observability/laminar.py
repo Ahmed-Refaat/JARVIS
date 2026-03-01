@@ -72,11 +72,29 @@ def observe_span(
     return decorator  # type: ignore[return-value]
 
 
-def traced(name: str, metadata: dict[str, Any] | None = None) -> Callable[[F], F]:
+def traced(
+    name: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    tags: list[str] | None = None,
+) -> Callable[[F], F]:
     """Lightweight timing + logging decorator that also feeds Laminar spans.
 
     Always logs duration/status even without Laminar.
+    Enhanced metadata is merged into spans for filtering in the Laminar dashboard.
     """
+
+    def _build_span_metadata(
+        elapsed: float, status: str, extra: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        meta = dict(metadata or {})
+        meta["duration_s"] = round(elapsed, 3)
+        meta["status"] = status
+        if tags:
+            meta["tags"] = tags
+        if extra:
+            meta.update(extra)
+        return meta
 
     def decorator(fn: F) -> F:
         import asyncio
@@ -106,7 +124,10 @@ def traced(name: str, metadata: dict[str, Any] | None = None) -> Callable[[F], F
                 try:
                     from lmnr import observe
 
-                    wrapped = observe(name=name, metadata=metadata)(async_wrapper)
+                    span_meta = dict(metadata or {})
+                    if tags:
+                        span_meta["tags"] = tags
+                    wrapped = observe(name=name, metadata=span_meta)(async_wrapper)
                 except Exception:
                     pass
             return wrapped  # type: ignore[return-value]
@@ -135,7 +156,10 @@ def traced(name: str, metadata: dict[str, Any] | None = None) -> Callable[[F], F
                 try:
                     from lmnr import observe
 
-                    wrapped_sync = observe(name=name, metadata=metadata)(sync_wrapper)
+                    span_meta = dict(metadata or {})
+                    if tags:
+                        span_meta["tags"] = tags
+                    wrapped_sync = observe(name=name, metadata=span_meta)(sync_wrapper)
                 except Exception:
                     pass
             return wrapped_sync  # type: ignore[return-value]

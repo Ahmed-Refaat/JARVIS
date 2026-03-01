@@ -12,7 +12,7 @@ import json
 from loguru import logger
 
 from agents.browser_agent import BaseBrowserAgent
-from agents.models import AgentResult, AgentStatus, ResearchRequest, SocialProfile
+from agents.models import AgentResult, AgentStatus, ResearchRequest, SocialProfile, parse_human_number
 from config import Settings
 
 
@@ -25,8 +25,8 @@ class TwitterAgent(BaseBrowserAgent):
 
     agent_name = "twitter"
 
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
+    def __init__(self, settings: Settings, *, inbox_pool=None):
+        super().__init__(settings, inbox_pool=inbox_pool)
 
     async def _run_task(self, request: ResearchRequest) -> AgentResult:
         # Try twscrape first (faster, no browser needed)
@@ -120,18 +120,15 @@ class TwitterAgent(BaseBrowserAgent):
         try:
             query = self._build_search_query(request)
             task = (
-                f"Go to x.com and search for '{query}'. "
-                f"Find the most likely Twitter/X profile for this person. "
-                f"Click into their profile and extract ALL of the following in JSON format:\n"
-                f'{{"username": "...", "display_name": "...", "bio": "...", '
-                f'"followers": 0, "following": 0, "tweets_count": 0, '
-                f'"location": "...", "verified": false, '
-                f'"recent_tweets": [{{"text": "...", "date": "...", "likes": 0}}], '
-                f'"interests": ["..."], "profile_url": "..."}}\n'
-                f"Return ONLY the JSON object, no other text."
+                f"Go to https://www.google.com/search?q={query.replace(' ', '+')}+site:x.com+OR+site:twitter.com "
+                f"and use the extract tool to get this JSON from the Google results:\n"
+                f'{{"username": "", "display_name": "", "bio": "", '
+                f'"followers": 0, "following": 0, "profile_url": ""}}\n'
+                f"Extract from Google snippets. Do NOT click into X/Twitter. Do NOT scroll. "
+                f"After extracting, immediately call done with the JSON result."
             )
 
-            agent = self._create_browser_agent(task)
+            agent = self._create_browser_agent(task, max_steps=3)
             result = await agent.run()
             final_result = result.final_result() if result else None
 
@@ -168,23 +165,59 @@ class TwitterAgent(BaseBrowserAgent):
             )
 
 
+def _extract_json(raw: str) -> dict:
+    """Robustly extract JSON from browser-use output.
+
+    Handles: markdown code fences, escaped quotes, surrounding text.
+    """
+    # Strip markdown code fences if present
+    cleaned = raw.strip()
+    if "```json" in cleaned:
+        cleaned = cleaned.split("```json", 1)[1]
+        cleaned = cleaned.split("```", 1)[0]
+    elif "```" in cleaned:
+        cleaned = cleaned.split("```", 1)[1]
+        cleaned = cleaned.split("```", 1)[0]
+
+    cleaned = cleaned.strip()
+
+    # Try direct parse first
+    try:
+        return json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Find the outermost { } and parse
+    start = cleaned.find("{")
+    end = cleaned.rfind("}") + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(cleaned[start:end])
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Try on original raw input
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start >= 0 and end > start:
+        try:
+            return json.loads(raw[start:end])
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    return {}
+
+
 def _parse_twitter_output(raw_output: str, person_name: str) -> dict:
     """Parse browser-use output into structured Twitter profile data."""
-    data: dict = {}
-    try:
-        start = raw_output.find("{")
-        end = raw_output.rfind("}") + 1
-        if start >= 0 and end > start:
-            data = json.loads(raw_output[start:end])
-    except (json.JSONDecodeError, ValueError):
-        logger.debug("twitter: could not parse JSON from output, using raw text")
+    data = _extract_json(raw_output)
 
     username = data.get("username", "")
     display_name = data.get("display_name", person_name)
     bio = data.get("bio", "")
-    followers = data.get("followers")
-    following = data.get("following")
-    tweets_count = data.get("tweets_count")
+    followers = parse_human_number(data.get("followers"))
+    following = parse_human_number(data.get("following"))
+    tweets_count = parse_human_number(data.get("tweets_count"))
     location = data.get("location")
     verified = data.get("verified", False)
     recent_tweets = data.get("recent_tweets", [])

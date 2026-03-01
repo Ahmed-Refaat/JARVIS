@@ -8,8 +8,10 @@ version = "0.1.0"
 description = "FastAPI control plane for the SPECTER YC hackathon project"
 requires-python = ">=3.11"
 dependencies = [
+  "agentmail>=0.2.22",
   "anthropic>=0.52.0",
   "browser-use>=0.12.0",
+  "browser-use-sdk>=2.0.15",
   "exa-py>=2.6.1",
   "fastapi>=0.116.0",
   "httpx>=0.28.1",
@@ -24,9 +26,10 @@ dependencies = [
   "pydantic-settings>=2.10.1",
   "python-multipart>=0.0.20",
   "twscrape>=0.17.0",
+  "sse-starlette>=1.8.0",
   "uvicorn>=0.35.0",
   "python-telegram-bot>=22.6",
-  "hud-python>=0.5.29",
+  # "hud-python>=0.5.29",  # Disabled: mcp version conflict with browser-use
 ]
 
 [project.optional-dependencies]
@@ -39,7 +42,7 @@ dev = [
 
 [tool.setuptools]
 py-modules = ["config", "env_check", "main", "pipeline", "schemas", "tasks"]
-packages = ["agents", "capture", "db", "enrichment", "eval", "identification", "observability", "synthesis"]
+packages = ["agents", "capture", "db", "enrichment", "eval", "identification", "memory", "observability", "synthesis"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -28,8 +28,8 @@ class DarkwebAgent(BaseBrowserAgent):
 
     agent_name = "darkweb"
 
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
+    def __init__(self, settings: Settings, *, inbox_pool=None):
+        super().__init__(settings, inbox_pool=inbox_pool)
 
     @property
     def configured(self) -> bool:

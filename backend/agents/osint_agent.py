@@ -19,8 +19,8 @@ class OsintAgent(BaseBrowserAgent):
 
     agent_name = "osint"
 
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
+    def __init__(self, settings: Settings, *, inbox_pool=None):
+        super().__init__(settings, inbox_pool=inbox_pool)
 
     async def _run_task(self, request: ResearchRequest) -> AgentResult:
         if not self.configured:
@@ -35,16 +35,17 @@ class OsintAgent(BaseBrowserAgent):
 
         try:
             task = (
-                f"Research '{query}' across public OSINT sources. "
-                f"1. Check WHOIS records for domains registered to this person or company. "
-                f"2. Look for professional certifications or licenses "
-                f"(e.g. state bar, medical license, CPA, real estate). "
-                f"3. Search public records databases for business filings, patents, trademarks. "
-                f"4. Check domain registration history on who.is or similar. "
-                f"Return all findings with source URLs in a structured format."
+                f"Go to https://www.google.com/search?q={query.replace(' ', '+')}+WHOIS+OR+patent+OR+trademark+OR+SEC+filing "
+                f"and use the extract tool to pull OSINT findings from the FIRST page only:\n"
+                f"- Domain registrations, WHOIS data\n"
+                f"- Patents, trademarks, SEC filings\n"
+                f"- Professional licenses, certifications\n"
+                f"- Public records, court filings\n"
+                f"Do NOT scroll. Do NOT click into results. "
+                f"After extracting, immediately call done with the result."
             )
 
-            agent = self._create_browser_agent(task)
+            agent = self._create_browser_agent(task, max_steps=3)
             result = await agent.run()
             final_result = result.final_result() if result else None
 

@@ -1,7 +1,8 @@
-"""LinkedIn research agent using browser-use with authenticated session support.
+"""LinkedIn research agent using Cloud SDK skills with browser-use fallback.
 
 # RESEARCH: Checked linkedin-api (2k stars, unofficial), linkedin-scraper (archived)
-# DECISION: Browser Use + Voyager API interception — most reliable for public profiles
+# DECISION: Browser Use Cloud SDK skills (LinkedIn Company Posts $0.01/run, deterministic)
+# FALLBACK: browser-use Agent + Google snippet extraction
 # ALT: linkedin-api (gets rate-limited fast, account bans)
 """
 
@@ -12,23 +13,76 @@ import json
 from loguru import logger
 
 from agents.browser_agent import BaseBrowserAgent
+from agents.cloud_skills import CloudSkillRunner
 from agents.models import AgentResult, AgentStatus, ResearchRequest, SocialProfile
 from config import Settings
 
 
 class LinkedInAgent(BaseBrowserAgent):
-    """Scrapes LinkedIn profiles via browser-use with authenticated session.
+    """Scrapes LinkedIn profiles via Cloud SDK skill, falls back to browser-use.
 
-    Extracts: headline, experience, education, skills, connections count, recent posts.
-    Authenticated session bypasses the login wall for richer data.
+    Primary: Cloud SDK LinkedIn Company Posts skill (no cookies needed, $0.01/run)
+    Fallback: browser-use Agent + Google snippet extraction
     """
 
     agent_name = "linkedin"
 
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
+    def __init__(self, settings: Settings, *, inbox_pool=None):
+        super().__init__(settings, inbox_pool=inbox_pool)
+        self._cloud = CloudSkillRunner(settings)
 
     async def _run_task(self, request: ResearchRequest) -> AgentResult:
+        # Try Cloud SDK skill first
+        if self._cloud.configured:
+            cloud_result = await self._try_cloud_skill(request)
+            if (
+                cloud_result
+                and cloud_result.status == AgentStatus.SUCCESS
+                and cloud_result.profiles
+            ):
+                return cloud_result
+
+        # Fallback to Google-scraping
+        return await self._try_browser_use(request)
+
+    async def _try_cloud_skill(self, request: ResearchRequest) -> AgentResult | None:
+        """Try LinkedIn marketplace skills via Cloud SDK."""
+        query = self._build_search_query(request)
+
+        # Use LinkedIn Company Posts skill for company-affiliated searches
+        task = (
+            f"Find the LinkedIn profile for {query} and extract their professional information "
+            f"including full name, headline, current company, title, location, and about section."
+        )
+
+        try:
+            result = await self._cloud.run_skill(
+                "linkedin_company_posts",
+                task,
+                timeout=45.0,
+            )
+
+            if not result or not result.get("success"):
+                logger.info("linkedin cloud skill returned no result, falling back")
+                return None
+
+            output = result.get("output", "")
+            parsed = _parse_linkedin_output(output, request.person_name)
+
+            return AgentResult(
+                agent_name=self.agent_name,
+                status=AgentStatus.SUCCESS,
+                profiles=[parsed["profile"]],
+                snippets=parsed["snippets"],
+                urls_found=[parsed["profile"].url] if parsed["profile"].url else [],
+            )
+
+        except Exception as exc:
+            logger.warning("linkedin cloud skill error: {}", str(exc))
+            return None
+
+    async def _try_browser_use(self, request: ResearchRequest) -> AgentResult:
+        """Fallback: Google-first scraping via browser-use Agent."""
         if not self.configured:
             return AgentResult(
                 agent_name=self.agent_name,
@@ -37,24 +91,20 @@ class LinkedInAgent(BaseBrowserAgent):
             )
 
         query = self._build_search_query(request)
-        logger.info("linkedin agent searching: {}", query)
+        logger.info("linkedin agent (fallback) searching: {}", query)
 
         try:
             task = (
-                f"Go to linkedin.com and search for '{query}'. "
-                f"Find the most likely profile for this person. "
-                f"Click into their profile page and extract ALL of the following in JSON format:\n"
-                f'{{"full_name": "...", "headline": "...", "location": "...", '
-                f'"about": "...", "current_company": "...", "current_title": "...", '
-                f'"experience": [{{"title": "...", "company": "...", "duration": "..."}}], '
-                f'"education": [{{"school": "...", "degree": "...", "field": "..."}}], '
-                f'"skills": ["..."], "connections_count": "...", '
-                f'"recent_posts": [{{"text": "...", "date": "..."}}], '
-                f'"profile_url": "..."}}\n'
-                f"Return ONLY the JSON object, no other text."
+                f"Go to https://www.google.com/search?q={query.replace(' ', '+')}+LinkedIn+profile "
+                f"and use the extract tool on the search results to get this JSON:\n"
+                f'{{"full_name": "", "headline": "", "location": "", "about": "", '
+                f'"current_company": "", "current_title": "", "profile_url": ""}}\n'
+                f"Extract from Google's snippets and knowledge panel. "
+                f"Do NOT click into LinkedIn. Do NOT scroll. "
+                f"After extracting, immediately call done with the JSON result."
             )
 
-            agent = self._create_browser_agent(task)
+            agent = self._create_browser_agent(task, max_steps=3)
             result = await agent.run()
             final_result = result.final_result() if result else None
 
@@ -91,19 +141,35 @@ class LinkedInAgent(BaseBrowserAgent):
             )
 
 
+def _extract_json(raw: str) -> dict:
+    """Robustly extract JSON from browser-use output."""
+    cleaned = raw.strip()
+    if "```json" in cleaned:
+        cleaned = cleaned.split("```json", 1)[1].split("```", 1)[0]
+    elif "```" in cleaned:
+        cleaned = cleaned.split("```", 1)[1].split("```", 1)[0]
+    cleaned = cleaned.strip()
+
+    for text in [cleaned, raw]:
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                return json.loads(text[start:end])
+            except (json.JSONDecodeError, ValueError):
+                pass
+    return {}
+
+
 def _parse_linkedin_output(
     raw_output: str, person_name: str
 ) -> dict:
-    """Parse browser-use output into structured profile data."""
-    data: dict = {}
-    try:
-        # Try extracting JSON from the output
-        start = raw_output.find("{")
-        end = raw_output.rfind("}") + 1
-        if start >= 0 and end > start:
-            data = json.loads(raw_output[start:end])
-    except (json.JSONDecodeError, ValueError):
-        logger.debug("linkedin: could not parse JSON from output, using raw text")
+    """Parse browser-use or Cloud SDK output into structured profile data."""
+    data = _extract_json(raw_output)
 
     profile_url = data.get("profile_url", "")
     display_name = data.get("full_name", person_name)
@@ -118,7 +184,6 @@ def _parse_linkedin_output(
     connections = data.get("connections_count")
     recent_posts = data.get("recent_posts", [])
 
-    # Build raw_data with all extracted fields
     raw_data = {
         "headline": headline,
         "about": about,
@@ -132,7 +197,6 @@ def _parse_linkedin_output(
         "browser_use_output": raw_output,
     }
 
-    # Parse connections count to int if possible
     followers_count = None
     if connections:
         try:

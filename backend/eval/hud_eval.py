@@ -10,9 +10,14 @@ Evaluates dossier output quality across three axes:
   2. Accuracy     — do URLs actually resolve?
   3. Synthesis    — is the summary coherent and non-empty?
 
+Enhanced: now runs the full DeepResearcher pipeline (not just Exa) and measures
+information density, false positive rate, and per-phase timing.
+
 Usage:
     python -m eval.hud_eval                      # run all test subjects
     python -m eval.hud_eval --name "Sam Altman"  # run one subject
+    python -m eval.hud_eval --full-pipeline       # use DeepResearcher (default)
+    python -m eval.hud_eval --exa-only            # legacy Exa-only mode
 """
 
 from __future__ import annotations
@@ -49,15 +54,16 @@ class EvalScores:
     overall: float = 0.0
     details: dict[str, object] = field(default_factory=dict)
     elapsed_s: float = 0.0
+    info_density: float = 0.0
+    false_positive_rate: float = 0.0
+    phase_timings: dict[str, float] = field(default_factory=dict)
+    sources_count: int = 0
+    urls_discovered: int = 0
+    platforms_covered: int = 0
 
 
 def score_completeness(dossier: DossierReport) -> tuple[float, dict[str, bool]]:
-    """Score how complete a dossier is (0.0 - 1.0).
-
-    Checks presence of: summary, title, company, work_history,
-    education, social_profiles (at least 1 link), notable_activity,
-    conversation_hooks.
-    """
+    """Score how complete a dossier is (0.0 - 1.0)."""
     checks = {
         "has_summary": bool(dossier.summary and len(dossier.summary) > 20),
         "has_title": bool(dossier.title),
@@ -78,10 +84,7 @@ def _has_any_social(dossier: DossierReport) -> bool:
 
 
 async def score_accuracy(dossier: DossierReport, timeout: float = 10.0) -> tuple[float, dict[str, bool]]:
-    """Score URL accuracy by checking if social profile URLs resolve (2xx/3xx).
-
-    Returns (score, {url: resolved_bool}).
-    """
+    """Score URL accuracy by checking if social profile URLs resolve (2xx/3xx)."""
     urls: dict[str, str] = {}
     sp = dossier.social_profiles
     if sp.linkedin:
@@ -129,15 +132,11 @@ def _normalize_url(raw: str) -> str:
 
 
 def score_synthesis(dossier: DossierReport) -> tuple[float, dict[str, object]]:
-    """Score synthesis quality: summary length, specificity, risk flags sanity.
-
-    This is a heuristic — a real eval would use LLM-as-judge.
-    """
+    """Score synthesis quality: summary length, specificity, risk flags sanity."""
     details: dict[str, object] = {}
     points = 0.0
     max_points = 5.0
 
-    # Summary quality (0-2 points)
     summary_len = len(dossier.summary)
     if summary_len > 100:
         points += 2.0
@@ -149,7 +148,6 @@ def score_synthesis(dossier: DossierReport) -> tuple[float, dict[str, object]]:
         details["summary_quality"] = "too_short"
     details["summary_length"] = summary_len
 
-    # Conversation hooks specificity (0-1 points)
     hooks_count = len(dossier.conversation_hooks)
     if hooks_count >= 2:
         points += 1.0
@@ -160,7 +158,6 @@ def score_synthesis(dossier: DossierReport) -> tuple[float, dict[str, object]]:
     else:
         details["hooks_quality"] = "missing"
 
-    # Work history depth (0-1 points)
     wh_count = len(dossier.work_history)
     if wh_count >= 2:
         points += 1.0
@@ -171,7 +168,6 @@ def score_synthesis(dossier: DossierReport) -> tuple[float, dict[str, object]]:
     else:
         details["work_history_depth"] = "missing"
 
-    # Risk flags sanity — not empty for public figures, not excessive (0-1 point)
     rf_count = len(dossier.risk_flags)
     if rf_count <= 5:
         points += 1.0
@@ -184,44 +180,142 @@ def score_synthesis(dossier: DossierReport) -> tuple[float, dict[str, object]]:
     return points / max_points, details
 
 
+def score_info_density(snippets: list[str]) -> float:
+    """Score information density — ratio of unique facts to total snippets.
+
+    Higher density = each source contributes unique info (less redundancy).
+    """
+    if not snippets:
+        return 0.0
+
+    # Simple dedup: count unique non-trivial snippets (>20 chars)
+    unique = set()
+    for s in snippets:
+        normalized = s.strip().lower()[:100]
+        if len(normalized) > 20:
+            unique.add(normalized)
+
+    return len(unique) / len(snippets) if snippets else 0.0
+
+
+def compute_false_positive_rate(
+    snippets: list[str], person_name: str
+) -> float:
+    """Estimate false positive rate — fraction of snippets NOT about the person."""
+    if not snippets:
+        return 0.0
+
+    name_parts = person_name.lower().split()
+    false_positives = 0
+
+    for snippet in snippets:
+        text = snippet.lower()
+        if not any(part in text for part in name_parts):
+            false_positives += 1
+
+    return false_positives / len(snippets)
+
+
 # ---------------------------------------------------------------------------
-# Pipeline runner — calls the real synthesis engine
+# Pipeline runners
 # ---------------------------------------------------------------------------
 
-async def run_pipeline_for_subject(person_name: str) -> DossierReport | None:
-    """Run the enrichment + synthesis pipeline for a person and return the dossier.
+async def run_pipeline_for_subject(
+    person_name: str, *, use_deep_researcher: bool = True
+) -> tuple[DossierReport | None, dict[str, object]]:
+    """Run the enrichment + synthesis pipeline for a person.
 
-    Uses Exa enrichment (fast) + Anthropic synthesis to produce a dossier.
-    Skips face detection / browser agents since eval subjects are name-only.
+    Returns (dossier, pipeline_metadata).
+    When use_deep_researcher=True, runs the full DeepResearcher pipeline
+    including SixtyFour.ai, Browser Use skills, and verification.
     """
     settings = get_settings()
+    pipeline_meta: dict[str, object] = {}
+    all_snippets: list[str] = []
+    all_urls: list[str] = []
+    sources: set[str] = set()
+    platforms: set[str] = set()
 
-    # Exa enrichment
     exa_result = None
-    if settings.exa_api_key:
-        from enrichment.exa_client import ExaEnrichmentClient
-        from enrichment.models import EnrichmentRequest
 
-        exa_client = ExaEnrichmentClient(settings)
-        exa_result = await exa_client.enrich_person(
-            EnrichmentRequest(name=person_name),
+    if use_deep_researcher and settings.browser_use_api_key:
+        # Full pipeline: DeepResearcher
+        from agents.deep_researcher import DeepResearcher
+        from agents.models import ResearchRequest
+
+        researcher = DeepResearcher(settings)
+        request = ResearchRequest(person_name=person_name)
+
+        t_research = time.monotonic()
+        agent_results = []
+        async for result in researcher.research(request):
+            agent_results.append(result)
+            all_snippets.extend(result.snippets)
+            all_urls.extend(result.urls_found)
+            sources.add(result.agent_name)
+            for p in result.profiles:
+                platforms.add(p.platform)
+
+        pipeline_meta["research_elapsed_s"] = round(
+            time.monotonic() - t_research, 2
         )
-        if not exa_result.success:
-            logger.warning("Exa enrichment failed for {}: {}", person_name, exa_result.error)
-            exa_result = None
+        pipeline_meta["agent_count"] = len(agent_results)
 
-    # Build synthesis request from Exa results
-    from pipeline import CapturePipeline
-    synthesis_request = CapturePipeline._merge_to_synthesis_request(
-        person_name, exa_result, None,
-    )
+        # Build synthesis request from deep researcher results
+        from agents.models import OrchestratorResult
+        from pipeline import CapturePipeline
 
-    # Try Anthropic synthesis (primary for eval — avoids Gemini 429s)
+        browser_result = OrchestratorResult(
+            person_name=person_name,
+            agent_results={r.agent_name: r for r in agent_results},
+            all_profiles=[p for r in agent_results for p in r.profiles],
+            all_snippets=all_snippets,
+            success=bool(agent_results),
+        )
+
+        # Also run Exa for the synthesis merge
+        if settings.exa_api_key:
+            from enrichment.exa_client import ExaEnrichmentClient
+            from enrichment.models import EnrichmentRequest
+
+            exa_client = ExaEnrichmentClient(settings)
+            exa_result = await exa_client.enrich_person(
+                EnrichmentRequest(name=person_name),
+            )
+            if not exa_result.success:
+                exa_result = None
+
+        synthesis_request = CapturePipeline._merge_to_synthesis_request(
+            person_name, exa_result, browser_result,
+        )
+    else:
+        # Legacy: Exa-only mode
+        if settings.exa_api_key:
+            from enrichment.exa_client import ExaEnrichmentClient
+            from enrichment.models import EnrichmentRequest
+
+            exa_client = ExaEnrichmentClient(settings)
+            exa_result = await exa_client.enrich_person(
+                EnrichmentRequest(name=person_name),
+            )
+            if not exa_result.success:
+                logger.warning(
+                    "Exa enrichment failed for {}: {}",
+                    person_name,
+                    exa_result.error,
+                )
+                exa_result = None
+
+        from pipeline import CapturePipeline
+        synthesis_request = CapturePipeline._merge_to_synthesis_request(
+            person_name, exa_result, None,
+        )
+
+    # Synthesize
     from synthesis.anthropic_engine import AnthropicSynthesisEngine
     engine = AnthropicSynthesisEngine(settings)
 
     if not engine.configured:
-        # Fall back to Gemini
         from synthesis.engine import GeminiSynthesisEngine
         gemini = GeminiSynthesisEngine(settings)
         result = await gemini.synthesize(synthesis_request)
@@ -230,9 +324,18 @@ async def run_pipeline_for_subject(person_name: str) -> DossierReport | None:
 
     if not result.success:
         logger.error("Synthesis failed for {}: {}", person_name, result.error)
-        return None
+        return None, pipeline_meta
 
-    return result.dossier
+    pipeline_meta["snippets_count"] = len(all_snippets)
+    pipeline_meta["urls_discovered"] = len(set(all_urls))
+    pipeline_meta["sources"] = list(sources)
+    pipeline_meta["platforms_covered"] = list(platforms)
+    pipeline_meta["info_density"] = score_info_density(all_snippets)
+    pipeline_meta["false_positive_rate"] = compute_false_positive_rate(
+        all_snippets, person_name
+    )
+
+    return result.dossier, pipeline_meta
 
 
 # ---------------------------------------------------------------------------
@@ -251,16 +354,11 @@ try:
 
     @env.scenario("dossier-quality")
     async def dossier_quality_scenario(person_name: str, min_score: float = 0.6):
-        """Evaluate dossier quality for a person.
-
-        Yields the person name as the prompt, then scores the dossier output.
-        """
+        """Evaluate dossier quality for a person."""
         prompt = f"Generate a complete intelligence dossier for: {person_name}"
         response = yield prompt
 
-        # Score the response (in real HUD flow, the agent produces the dossier)
-        # For our harness, we run the pipeline directly and score
-        dossier = await run_pipeline_for_subject(person_name)
+        dossier, _ = await run_pipeline_for_subject(person_name)
         if dossier is None:
             yield 0.0
             return
@@ -301,6 +399,12 @@ KNOWN_SUBJECTS = [
         "expected_company": "Y Combinator",
         "expected_social": "twitter",
     },
+    {
+        "name": "Affaan Mustafa",
+        "expected_title": "Founder",
+        "expected_company": "Ito",
+        "expected_social": "twitter",
+    },
 ]
 
 
@@ -308,12 +412,16 @@ KNOWN_SUBJECTS = [
 # Standalone eval runner (no HUD platform needed)
 # ---------------------------------------------------------------------------
 
-async def evaluate_person(person_name: str) -> EvalScores:
+async def evaluate_person(
+    person_name: str, *, use_deep_researcher: bool = True
+) -> EvalScores:
     """Run full eval for a single person. Returns EvalScores."""
     t0 = time.monotonic()
     logger.info("Evaluating pipeline output for: {}", person_name)
 
-    dossier = await run_pipeline_for_subject(person_name)
+    dossier, pipeline_meta = await run_pipeline_for_subject(
+        person_name, use_deep_researcher=use_deep_researcher
+    )
     if dossier is None:
         return EvalScores(
             subject_name=person_name,
@@ -326,6 +434,11 @@ async def evaluate_person(person_name: str) -> EvalScores:
     synthesis, synth_details = score_synthesis(dossier)
 
     overall = (completeness * 0.4) + (accuracy * 0.3) + (synthesis * 0.3)
+
+    info_density = pipeline_meta.get("info_density", 0.0)
+    false_positive_rate = pipeline_meta.get("false_positive_rate", 0.0)
+    urls_discovered = pipeline_meta.get("urls_discovered", 0)
+    platforms = pipeline_meta.get("platforms_covered", [])
 
     return EvalScores(
         subject_name=person_name,
@@ -340,18 +453,30 @@ async def evaluate_person(person_name: str) -> EvalScores:
             "dossier_summary": dossier.summary[:200] if dossier.summary else "",
             "work_history_count": len(dossier.work_history),
             "education_count": len(dossier.education),
+            "pipeline": pipeline_meta,
         },
         elapsed_s=time.monotonic() - t0,
+        info_density=info_density,
+        false_positive_rate=false_positive_rate,
+        sources_count=len(pipeline_meta.get("sources", [])),
+        urls_discovered=urls_discovered,
+        platforms_covered=len(platforms),
     )
 
 
-async def run_all_subjects(subjects: list[dict[str, str]] | None = None) -> list[EvalScores]:
+async def run_all_subjects(
+    subjects: list[dict[str, str]] | None = None,
+    *,
+    use_deep_researcher: bool = True,
+) -> list[EvalScores]:
     """Evaluate the pipeline for all test subjects. Returns list of scores."""
     subjects = subjects or KNOWN_SUBJECTS
     results: list[EvalScores] = []
 
     for subject in subjects:
-        scores = await evaluate_person(subject["name"])
+        scores = await evaluate_person(
+            subject["name"], use_deep_researcher=use_deep_researcher
+        )
         results.append(scores)
         _print_scores(scores)
 
@@ -363,13 +488,19 @@ def _print_scores(scores: EvalScores) -> None:
     """Pretty-print evaluation scores for one subject."""
     status = "PASS" if scores.overall >= 0.6 else "FAIL"
     logger.info(
-        "[{}] {} — overall={:.0%} completeness={:.0%} accuracy={:.0%} synthesis={:.0%} ({:.1f}s)",
+        "[{}] {} — overall={:.0%} completeness={:.0%} accuracy={:.0%} synthesis={:.0%} "
+        "density={:.0%} fp_rate={:.0%} sources={} urls={} platforms={} ({:.1f}s)",
         status,
         scores.subject_name,
         scores.overall,
         scores.completeness,
         scores.accuracy,
         scores.synthesis,
+        scores.info_density,
+        scores.false_positive_rate,
+        scores.sources_count,
+        scores.urls_discovered,
+        scores.platforms_covered,
         scores.elapsed_s,
     )
 
@@ -384,19 +515,22 @@ def _print_summary(results: list[EvalScores]) -> None:
     avg_completeness = sum(r.completeness for r in results) / len(results)
     avg_accuracy = sum(r.accuracy for r in results) / len(results)
     avg_synthesis = sum(r.synthesis for r in results) / len(results)
+    avg_density = sum(r.info_density for r in results) / len(results)
+    avg_fp = sum(r.false_positive_rate for r in results) / len(results)
+    avg_urls = sum(r.urls_discovered for r in results) / len(results)
+    avg_platforms = sum(r.platforms_covered for r in results) / len(results)
     passed = sum(1 for r in results if r.overall >= 0.6)
 
-    logger.info("=" * 60)
+    logger.info("=" * 70)
     logger.info(
-        "SUMMARY: {}/{} passed | avg_overall={:.0%} comp={:.0%} acc={:.0%} synth={:.0%}",
-        passed,
-        len(results),
-        avg_overall,
-        avg_completeness,
-        avg_accuracy,
-        avg_synthesis,
+        "SUMMARY: {}/{} passed | overall={:.0%} comp={:.0%} acc={:.0%} synth={:.0%}",
+        passed, len(results), avg_overall, avg_completeness, avg_accuracy, avg_synthesis,
     )
-    logger.info("=" * 60)
+    logger.info(
+        "         density={:.0%} fp_rate={:.0%} avg_urls={:.0f} avg_platforms={:.0f}",
+        avg_density, avg_fp, avg_urls, avg_platforms,
+    )
+    logger.info("=" * 70)
 
 
 # ---------------------------------------------------------------------------
@@ -410,13 +544,25 @@ def main() -> None:
         "--hud", action="store_true",
         help="Run via HUD platform scenarios (requires HUD_API_KEY)",
     )
+    parser.add_argument(
+        "--exa-only", action="store_true",
+        help="Legacy mode: use Exa only (no Browser Use skills)",
+    )
+    parser.add_argument(
+        "--full-pipeline", action="store_true", default=True,
+        help="Use full DeepResearcher pipeline (default)",
+    )
     args = parser.parse_args()
 
+    use_deep = not args.exa_only
+
     if args.name:
-        scores = asyncio.run(evaluate_person(args.name))
+        scores = asyncio.run(
+            evaluate_person(args.name, use_deep_researcher=use_deep)
+        )
         _print_scores(scores)
     else:
-        asyncio.run(run_all_subjects())
+        asyncio.run(run_all_subjects(use_deep_researcher=use_deep))
 
 
 if __name__ == "__main__":
