@@ -9,6 +9,7 @@ description = "FastAPI control plane for the SPECTER YC hackathon project"
 requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.116.0",
+  "httpx>=0.28.1",
   "loguru>=0.7.3",
   "opencv-python-headless>=4.10.0",
   "Pillow>=10.0.0",
