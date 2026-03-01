@@ -400,6 +400,40 @@ export default function IntelBoard() {
             background: "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.35) 100%)",
           }} />
 
+          {/* IDLE PLACEHOLDER — shown when no target is selected */}
+          {!activePerson && (
+            <div style={{
+              position: "absolute", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%)",
+              textAlign: "center", pointerEvents: "none", userSelect: "none",
+              zIndex: 2,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 18,
+            }}>
+              <svg width="52" height="52" viewBox="0 0 52 52" style={{ opacity: 0.18 }}>
+                <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(120,180,80,1)" strokeWidth="1" />
+                <circle cx="26" cy="26" r="13" fill="none" stroke="rgba(120,180,80,1)" strokeWidth="0.5" />
+                <line x1="2"  y1="26" x2="12" y2="26" stroke="rgba(120,180,80,1)" strokeWidth="1" />
+                <line x1="40" y1="26" x2="50" y2="26" stroke="rgba(120,180,80,1)" strokeWidth="1" />
+                <line x1="26" y1="2"  x2="26" y2="12" stroke="rgba(120,180,80,1)" strokeWidth="1" />
+                <line x1="26" y1="40" x2="26" y2="50" stroke="rgba(120,180,80,1)" strokeWidth="1" />
+              </svg>
+              <div style={{
+                fontFamily: "var(--font-heading)", fontSize: 22,
+                letterSpacing: "0.3em", color: "rgba(120,180,80,.22)",
+              }}>
+                NO ACTIVE TARGET
+              </div>
+              <div style={{
+                fontFamily: "var(--font-mono)", fontSize: 10.5,
+                letterSpacing: ".07em", color: "rgba(120,180,80,.13)",
+                lineHeight: 2, textTransform: "uppercase",
+              }}>
+                SELECT A SUBJECT FROM THE SIDEBAR TO BEGIN ANALYSIS<br />
+                OR CONNECT THE GLASSES CAMERA TO SCAN A NEW TARGET
+              </div>
+            </div>
+          )}
+
           {/* CAMERA FEED — fixed top-right of board area */}
           <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, pointerEvents: "none", zIndex: 20 }}>
             <CameraFeed
