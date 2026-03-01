@@ -39,3 +39,26 @@ class TaskPhase(BaseModel):
     title: str
     timebox: str
     tasks: list[TaskItem] = Field(default_factory=list)
+
+
+# --- Stream frame capture & YOLO detection ---
+
+
+class FrameSubmission(BaseModel):
+    frame: str  # base64-encoded JPEG
+    timestamp: int  # client-side ms since epoch
+    source: str = "glasses_stream"
+
+
+class Detection(BaseModel):
+    bbox: list[float]  # [x1, y1, x2, y2]
+    confidence: float
+    track_id: int | None = None
+
+
+class FrameProcessedResponse(BaseModel):
+    capture_id: str
+    detections: list[Detection]
+    new_persons: int
+    timestamp: int
+    source: str

@@ -3,13 +3,15 @@ from __future__ import annotations
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from capture.frame_handler import FrameHandler
 from capture.service import CaptureService
 from config import get_settings
-from schemas import HealthResponse, ServiceStatus, TaskPhase
+from schemas import FrameProcessedResponse, FrameSubmission, HealthResponse, ServiceStatus, TaskPhase
 from tasks import TASK_PHASES
 
 settings = get_settings()
 capture_service = CaptureService()
+frame_handler = FrameHandler()
 upload_file = File(...)
 
 app = FastAPI(
@@ -64,3 +66,13 @@ async def tasks() -> list[TaskPhase]:
 @app.post("/api/capture")
 async def capture(file: UploadFile = upload_file, source: str = "manual_upload"):
     return await capture_service.enqueue_upload(file=file, source=source)
+
+
+@app.post("/api/capture/frame", response_model=FrameProcessedResponse)
+async def capture_frame(submission: FrameSubmission) -> FrameProcessedResponse:
+    result = await frame_handler.process_frame(
+        frame_b64=submission.frame,
+        timestamp=submission.timestamp,
+        source=submission.source,
+    )
+    return FrameProcessedResponse(**result)
