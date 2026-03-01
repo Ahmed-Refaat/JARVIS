@@ -42,6 +42,10 @@ def initialize_laminar(settings: Settings) -> bool:
         return False
 
 
+def laminar_ready(settings: Settings) -> bool:
+    return bool(settings.laminar_api_key)
+
+
 def observe_span(
     name: str | None = None,
     *,

@@ -1,4 +1,4 @@
-import type { ActivityRecord, ConnectionRecord, PersonRecord } from "./types";
+import type { ActivityRecord, ConnectionRecord, IntelPerson, PersonRecord } from "./types";
 
 export const demoPersons: PersonRecord[] = [
   {
@@ -11,9 +11,9 @@ export const demoPersons: PersonRecord[] = [
     dossier: {
       summary: "Builder-operator with strong infra instincts and a habit of shipping live demos under time pressure.",
       title: "Infrastructure Lead",
-      company: "SPECTER",
+      company: "CIRI",
       workHistory: [
-        { role: "Infra Lead", company: "SPECTER", period: "2026-present" },
+        { role: "Infra Lead", company: "CIRI", period: "2026-present" },
         { role: "Full-Stack Engineer", company: "Stealth", period: "2024-2026" },
       ],
       education: [{ school: "UC Berkeley", degree: "B.S. Computer Science" }],
@@ -36,8 +36,8 @@ export const demoPersons: PersonRecord[] = [
     dossier: {
       summary: "Frontend-heavy operator focused on cinematic intelligence-board UX and judge-facing polish.",
       title: "Frontend Systems",
-      company: "SPECTER",
-      workHistory: [{ role: "Frontend Systems", company: "SPECTER", period: "2026-present" }],
+      company: "CIRI",
+      workHistory: [{ role: "Frontend Systems", company: "CIRI", period: "2026-present" }],
       education: [{ school: "Stanford", degree: "HCI" }],
       socialProfiles: {
         linkedin: "linkedin.com/in/minasol",
@@ -58,8 +58,8 @@ export const demoPersons: PersonRecord[] = [
     dossier: {
       summary: "Owns synthesis and evaluation flows, with a bias for observability before scale.",
       title: "Research Systems",
-      company: "SPECTER",
-      workHistory: [{ role: "Research Systems", company: "SPECTER", period: "2026-present" }],
+      company: "CIRI",
+      workHistory: [{ role: "Research Systems", company: "CIRI", period: "2026-present" }],
       education: [{ school: "MIT", degree: "AI + Systems" }],
       socialProfiles: {
         github: "github.com/elirowan",
@@ -86,6 +86,84 @@ export const demoConnections: ConnectionRecord[] = [
     personBId: "person_3",
     relationshipType: "pipeline-planning",
     description: "Aligning ingestion, observability, and evaluation contracts.",
+  },
+];
+
+export const demoPeople: IntelPerson[] = [
+  {
+    id: "p1",
+    name: "Alex Mercer",
+    status: "complete",
+    summary: {
+      nm: "ALEX MERCER",
+      sm: "High-priority intelligence target with cross-sector ties spanning Silicon Valley tech firms and defense contracting networks. Multiple corporate entities registered under associated aliases. Financial footprint suggests diversified asset portfolio with international exposure.",
+      title: "Software Engineer",
+      location: "San Francisco, CA",
+    },
+    sources: [
+      { nm: "LinkedIn Profile", tp: "SOCIAL", sn: "Software engineer at Google, previously at Meta. 500+ connections with notable defense industry ties." },
+      { nm: "County Court Records", tp: "PUBLIC RECORD", sn: "No criminal records found across federal and state databases. One civil filing from 2019 — resolved." },
+      { nm: "TechCrunch Feature", tp: "MEDIA", sn: "Featured in Series A funding coverage. Company valued at $12M with Andreessen Horowitz investors." },
+      { nm: "SEC Corporate Filing", tp: "CORPORATE", sn: "Listed as board director for three registered LLCs. Two in Delaware, one in Nevada." },
+      { nm: "IEEE Research Paper", tp: "ACADEMIC", sn: "Co-authored neural architecture optimization paper. Cited 340 times. Collaborators from MIT and Stanford." },
+    ],
+  },
+  {
+    id: "p2",
+    name: "Diana Voss",
+    status: "complete",
+    summary: {
+      nm: "DIANA VOSS",
+      sm: "Former intelligence analyst turned private consultant. Extensive network in European defense procurement circles. Multiple shell companies traced to Cyprus and Liechtenstein.",
+      title: "Private Consultant",
+      location: "Berlin, Germany",
+    },
+    sources: [
+      { nm: "Interpol Red Notice DB", tp: "LAW ENFORCEMENT", sn: "No active notices. Historical query flagged from German BKA in 2021 — status unclear." },
+      { nm: "Companies House UK", tp: "CORPORATE", sn: "Director of Meridian Consulting Ltd, incorporated 2019. Annual accounts show £2.4M revenue." },
+      { nm: "Der Spiegel Article", tp: "MEDIA", sn: "Named in investigative piece on European defense lobbying networks. Denied involvement." },
+      { nm: "Property Registry Cyprus", tp: "PUBLIC RECORD", sn: "Two properties registered in Limassol. Combined estimated value €1.8M." },
+    ],
+  },
+  {
+    id: "p3",
+    name: "Marcus Chen",
+    status: "scanning",
+    summary: {
+      nm: "MARCUS CHEN",
+      sm: "Venture capitalist with deep ties to dual-use technology startups. Portfolio includes several companies with known defense contracts.",
+      title: "Managing Partner",
+      location: "New York, NY",
+    },
+    sources: [
+      {
+        nm: "Crunchbase Profile", tp: "CORPORATE",
+        sn: "Managing Partner at Apex Ventures. 23 portfolio companies, 4 exits. Focus on AI/ML and cybersecurity.",
+        sessionId: "ses_demo_crunchbase", taskId: "tsk_demo_crunchbase_01",
+        shareUrl: "https://browser-use.com/share/demo-crunchbase",
+        sessionStatus: "completed", url: "https://crunchbase.com/person/marcus-chen",
+      },
+      {
+        nm: "Twitter/X Activity", tp: "SOCIAL",
+        sn: "Active in AI policy circles. Recent posts about export control reform and ITAR regulations.",
+        sessionId: "ses_demo_twitter", taskId: "tsk_demo_twitter_01",
+        sessionStatus: "running", url: "https://twitter.com/search?q=marcus+chen",
+      },
+    ],
+  },
+  {
+    id: "p4",
+    name: "Sarah Okonkwo",
+    status: "inactive",
+    summary: {
+      nm: "SARAH OKONKWO",
+      sm: "International trade attorney specializing in sanctions compliance. Previously at the U.S. Treasury Department's OFAC division.",
+      title: "Int'l Trade Attorney",
+      location: "Washington, D.C.",
+    },
+    sources: [
+      { nm: "DC Bar Association", tp: "PUBLIC RECORD", sn: "Licensed attorney since 2011. No disciplinary actions. Specialization in international trade law." },
+    ],
   },
 ];
 

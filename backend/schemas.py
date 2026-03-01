@@ -41,6 +41,77 @@ class TaskPhase(BaseModel):
     tasks: list[TaskItem] = Field(default_factory=list)
 
 
+# --- Stream frame capture & YOLO detection ---
+
+
+class FrameSubmission(BaseModel):
+    frame: str  # base64-encoded JPEG
+    timestamp: int  # client-side ms since epoch
+    source: str = "glasses_stream"
+
+
+class Detection(BaseModel):
+    bbox: list[float]  # [x1, y1, x2, y2]
+    confidence: float
+    track_id: int | None = None
+
+
+class FrameProcessedResponse(BaseModel):
+    capture_id: str
+    detections: list[Detection]
+    new_persons: int
+    timestamp: int
+    source: str
+
+
+# --- Browser Use agent research ---
+
+
+class AgentStartRequest(BaseModel):
+    person_id: str
+    person_name: str
+    sources: list[str] = Field(default_factory=lambda: ["linkedin", "twitter", "google"])
+
+
+class AgentInfo(BaseModel):
+    source_tp: str
+    source_nm: str
+    session_id: str
+    task_id: str
+    live_url: str | None = None
+    session_status: Literal["pending", "running", "completed", "failed"] = "running"
+
+
+class AgentStartResponse(BaseModel):
+    person_id: str
+    agents: list[AgentInfo]
+
+
+class TaskStep(BaseModel):
+    number: int
+    url: str | None = None
+    screenshot_url: str | None = None
+    next_goal: str | None = None
+
+
+class TaskInfo(BaseModel):
+    task_id: str
+    status: str | None = None
+    steps: list[TaskStep] = Field(default_factory=list)
+    output: str | None = None
+
+
+class SessionStatusResponse(BaseModel):
+    session_id: str
+    session_status: Literal["pending", "running", "completed", "failed"] = "pending"
+    live_url: str | None = None
+    share_url: str | None = None
+    task: TaskInfo | None = None
+
+
+# --- Identify endpoint ---
+
+
 class IdentifyRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Person's full name")
     image_url: str = Field(..., min_length=1, description="URL of a photo of the person")

@@ -1,10 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Radio, Eye } from "lucide-react";
+import { Radio, Eye } from "lucide-react";
+
+function CiriLogo({ size = 22 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Outer ring — thin surveillance reticle */}
+      <circle cx="16" cy="16" r="14.5" stroke="var(--intel-green)" strokeWidth="1" opacity="0.5" />
+      {/* Inner ring */}
+      <circle cx="16" cy="16" r="9" stroke="var(--intel-green)" strokeWidth="0.75" opacity="0.35" />
+      {/* Crosshair ticks — top, right, bottom, left */}
+      <line x1="16" y1="1" x2="16" y2="5" stroke="var(--intel-green)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="31" y1="16" x2="27" y2="16" stroke="var(--intel-green)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="16" y1="31" x2="16" y2="27" stroke="var(--intel-green)" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="1" y1="16" x2="5" y2="16" stroke="var(--intel-green)" strokeWidth="1.2" strokeLinecap="round" />
+      {/* Center eye — the "iris" */}
+      <circle cx="16" cy="16" r="3.5" stroke="var(--intel-green)" strokeWidth="1.5" />
+      {/* Pupil dot */}
+      <circle cx="16" cy="16" r="1.2" fill="var(--intel-green)" />
+      {/* Diagonal scan lines — NE and SW quadrant accents */}
+      <line x1="21.5" y1="5.5" x2="24" y2="3" stroke="var(--intel-green)" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
+      <line x1="10.5" y1="26.5" x2="8" y2="29" stroke="var(--intel-green)" strokeWidth="0.6" opacity="0.3" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 interface TopBarProps {
-  personCount: number;
+  personCount?: number;
   isLive?: boolean;
   children?: React.ReactNode;
 }
@@ -36,12 +65,12 @@ export function TopBar({ personCount, isLive = false, children }: TopBarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <Shield className="w-5 h-5" style={{ color: "var(--intel-green)" }} />
+        <CiriLogo size={22} />
         <span
           className="text-2xl tracking-[6px]"
           style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)" }}
         >
-          SPECTER
+          CIRI
         </span>
         <span
           className="text-xs px-2 py-0.5 rounded"
@@ -56,16 +85,18 @@ export function TopBar({ personCount, isLive = false, children }: TopBarProps) {
       </div>
 
       {/* Center status */}
-      <div className="flex items-center gap-6 text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}>
-        <div className="flex items-center gap-2">
-          <Radio className="w-3 h-3 status-pulse" style={{ color: isLive ? "var(--intel-green)" : "var(--alert-amber)" }} />
-          <span>{isLive ? "LIVE" : "DEMO"}</span>
+      {personCount !== undefined && (
+        <div className="flex items-center gap-6 text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--text-dim)" }}>
+          <div className="flex items-center gap-2">
+            <Radio className="w-3 h-3 status-pulse" style={{ color: isLive ? "var(--intel-green)" : "var(--alert-amber)" }} />
+            <span>{isLive ? "LIVE" : "DEMO"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Eye className="w-3 h-3" style={{ color: "var(--alert-amber)" }} />
+            <span>{personCount} SUBJECTS</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Eye className="w-3 h-3" style={{ color: "var(--alert-amber)" }} />
-          <span>{personCount} SUBJECTS</span>
-        </div>
-      </div>
+      )}
 
       {/* Actions + Clock */}
       <div className="flex items-center gap-4">
